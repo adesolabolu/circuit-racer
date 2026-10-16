@@ -4,12 +4,17 @@ import { buildAtmosphere } from './scene/AtmosphereBuilder.js';
 import { buildHackerWorkbenchDiorama } from './scene/HackerWorkbenchBuilder.js';
 import { buildCoasterTrack } from './scene/CoasterTrackBuilder.js';
 import { buildMicroKart } from './scene/MicroKartBuilder.js';
+import { createTrackCollectibles } from './scene/TrackCollectibles.js';
+import { createBoostPads } from './scene/BoostPads.js';
+import { createJumpRamp } from './scene/JumpRampBuilder.js';
 import { createKartPhysicsController } from './physics/KartPhysicsController.js';
+import { createHazardManager } from './physics/HazardManager.js';
 import { createWebAudioSynth } from './audio/WebAudioSynth.js';
 import { getPlayer, onUserChange, saveScore } from './platform/startng.js';
 import { profileState } from './state/ProfileState.js';
 import { createTitleScreen } from './ui/TitleScreen.js';
 import { createHudOverlay } from './ui/HudOverlay.js';
+import { createResultsModal } from './ui/ResultsModal.js';
 
 async function initCircuitRacer() {
   const container = document.getElementById('canvas-container');
@@ -95,41 +100,7 @@ async function initCircuitRacer() {
   kart.kartRoot.position.copy(initSt.position);
   kart.kartRoot.quaternion.copy(initSt.quaternion);
 
-  // 8. INPUT HANDLING
-  const keys = {
-    forward: false,
-    backward: false,
-    left: false,
-    right: false,
-    drift: false,
-    boost: false,
-  };
-
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'KeyW' || e.key === 'ArrowUp') keys.forward = true;
-    if (e.code === 'KeyS' || e.key === 'ArrowDown') keys.backward = true;
-    if (e.code === 'KeyA' || e.key === 'ArrowLeft') keys.left = true;
-    if (e.code === 'KeyD' || e.key === 'ArrowRight') keys.right = true;
-    if (e.code === 'Space') keys.drift = true;
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.boost = true;
-    if (e.code === 'KeyM') audio.toggleMute?.();
-  });
-
-  window.addEventListener('keyup', (e) => {
-    if (e.code === 'KeyW' || e.key === 'ArrowUp') keys.forward = false;
-    if (e.code === 'KeyS' || e.key === 'ArrowDown') keys.backward = false;
-    if (e.code === 'KeyA' || e.key === 'ArrowLeft') keys.left = false;
-    if (e.code === 'KeyD' || e.key === 'ArrowRight') keys.right = false;
-    if (e.code === 'Space') keys.drift = false;
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.boost = false;
-  });
-
-  // 9. GAME STATE & UI
-  let gameState = 'ATTRACT'; // 'ATTRACT' | 'COUNTDOWN' | 'RACING' | 'FINISHED'
-  let raceTimer = 0;
-  let currentLap = 1;
-  const TOTAL_LAPS = 3;
-
+  // 8. GAMEPLAY MECHANICS (COLLECTIBLES, BOOST PADS, JUMP RAMP, HAZARD MANAGER)
   const hud = createHudOverlay({ player, profileState });
   hudContainerVisibility(false);
 
@@ -137,6 +108,111 @@ async function initCircuitRacer() {
     const el = document.getElementById('hud-root');
     if (el) el.style.display = visible ? 'block' : 'none';
   }
+
+  const collectibles = createTrackCollectibles(splineData, scene, {
+    chipCount: 16,
+    onCollect: (chip, amount) => {
+      profileState.addCoins(amount);
+      hud.setCoins(profileState.getCoins());
+      hud.showAlert('+10 BITS', 800);
+      audio.playChipPickup();
+    },
+  });
+
+  const boostPads = createBoostPads(splineData, scene, {
+    padCount: 4,
+    onBoost: () => {
+      physics.state.boostActive = 1.0;
+      physics.state.speed = Math.max(physics.state.speed, 0.285);
+      audio.playBoostPad();
+      hud.showAlert('TURBO BOOST!', 900);
+    },
+  });
+
+  const jumpRamp = createJumpRamp(splineData, scene, {
+    arcLength: 1.85, // Sector 3 jump
+    onLaunch: (launchVel) => {
+      physics.state.hopVel = launchVel;
+      audio.playJumpLaunch();
+    },
+  });
+
+  const hazardManager = createHazardManager(splineData, {
+    onFall: () => {
+      audio.playFallGlitch();
+      hud.showAlert('OFF TRACK! RESPAWNING...', 1200);
+    },
+    onRespawn: () => {
+      audio.playRespawnSound();
+    },
+  });
+
+  // Wire physics callbacks
+  physics.onRailImpact((severity) => {
+    audio.playRailImpact(severity);
+  });
+
+  physics.onLapComplete((lapTime, bestLap, completedLap, totalTime, isFinal) => {
+    if (!isFinal) {
+      collectibles.resetForNewLap();
+      hud.setLap(completedLap + 1);
+      hud.showAlert(`LAP ${completedLap + 1}!`);
+      audio.playLapChime();
+    }
+  });
+
+  physics.onRaceFinish(async (totalTime, lapTimes, bestLapTime) => {
+    gameState = 'FINISHED';
+    audio.playRaceFinishFanfare();
+
+    const chipsCount = collectibles.getCollectedCount();
+    const chipsBonus = chipsCount * 10;
+    const completionBonus = 50;
+    const cleanRunBonus = hazardManager.isCleanRun() ? 100 : 0;
+    const totalEarned = chipsBonus + completionBonus + cleanRunBonus;
+
+    // Add completion and clean run bonuses (chip coins were added live on pickup)
+    profileState.addCoins(completionBonus + cleanRunBonus);
+    hud.setCoins(profileState.getCoins());
+
+    // Submit score to start.ng
+    const finalScore = Math.max(
+      10,
+      Math.floor(10000 - totalTime * 80) + (hazardManager.isCleanRun() ? 1000 : 0)
+    );
+    let scoreResult = null;
+    try {
+      scoreResult = await saveScore(finalScore);
+    } catch (e) {
+      console.warn('Score submission error:', e);
+    }
+
+    createResultsModal({
+      totalTime,
+      bestLap: bestLapTime,
+      chipsCollected: chipsCount,
+      chipsBonus,
+      completionBonus,
+      cleanRunBonus,
+      totalEarned,
+      walletBalance: profileState.getCoins(),
+      scoreResult,
+      onRaceAgain: () => {
+        restartRaceSequence();
+      },
+      onGarage: () => {
+        hud.showAlert('GARAGE UNLOCKED IN PHASE 3!', 2000);
+      },
+      onMainMenu: () => {
+        returnToMainMenu();
+      },
+    });
+  });
+
+  // 9. GAME STATE & UI
+  let gameState = 'ATTRACT'; // 'ATTRACT' | 'COUNTDOWN' | 'RACING' | 'FINISHED'
+  let raceTimer = 0;
+  let wasAirborne = false;
 
   // Camera settings
   const chasePos = initSt.position
@@ -159,30 +235,57 @@ async function initCircuitRacer() {
     gameState,
   });
 
-  createTitleScreen({
-    player,
-    profileState,
-    onStartRace: () => {
-      startRaceSequence();
-    },
-  });
+  let titleScreenRef = null;
+
+  function showTitleScreen() {
+    titleScreenRef = createTitleScreen({
+      player,
+      profileState,
+      onStartRace: () => {
+        startRaceSequence();
+      },
+    });
+  }
+
+  showTitleScreen();
 
   function startRaceSequence() {
-    audio.startAudio?.();
+    audio.setEnabled(true);
     gameState = 'COUNTDOWN';
     hudContainerVisibility(true);
+    hud.setLap(1);
+    hud.setTime(0);
     hud.showAlert('READY...');
+    audio.playF1CountdownBeep(false);
 
     setTimeout(() => {
       hud.showAlert('SET...');
+      audio.playF1CountdownBeep(false);
     }, 1000);
 
     setTimeout(() => {
       hud.showAlert('GO!', 1200);
+      audio.playF1CountdownBeep(true);
       gameState = 'RACING';
       raceTimer = 0;
       physics.notifyLightsOut?.();
     }, 2000);
+  }
+
+  function restartRaceSequence() {
+    physics.resetToStart();
+    collectibles.resetAll();
+    hazardManager.reset();
+    startRaceSequence();
+  }
+
+  function returnToMainMenu() {
+    physics.resetToStart();
+    collectibles.resetAll();
+    hazardManager.reset();
+    gameState = 'ATTRACT';
+    hudContainerVisibility(false);
+    showTitleScreen();
   }
 
   // 10. ANIMATION LOOP
@@ -195,6 +298,11 @@ async function initCircuitRacer() {
 
     // Update diorama status LEDs & glowing heating elements
     diorama.updateLeds(now * 0.001);
+
+    // Update track collectibles, boost pads, and jump ramp
+    collectibles.update(dt, now * 0.001);
+    boostPads.update(dt, now * 0.001);
+    jumpRamp.update(dt, now * 0.001);
 
     if (gameState === 'ATTRACT') {
       // Cinematic slow turntable orbit around the kart parked on the start gantry
@@ -215,9 +323,34 @@ async function initCircuitRacer() {
       // Racing / Countdown / Finished
       const physicsState = physics.stepPhysics(dt);
 
-      // Sync 3D kart position and orientation with physics controller
-      kart.kartRoot.position.copy(physicsState.position);
-      kart.kartRoot.quaternion.copy(physicsState.quaternion);
+      // Hazard & Fall Step
+      const hazard = hazardManager.step(dt, physicsState);
+
+      if (hazard.falling) {
+        // Tumble kart downwards off track
+        kart.kartRoot.rotation.x += dt * 7.5;
+        kart.kartRoot.rotation.z += dt * 4.2;
+        kart.kartRoot.position.y -= dt * 0.07;
+      } else {
+        // Sync 3D kart position and orientation with physics controller
+        kart.kartRoot.position.copy(physicsState.position);
+        kart.kartRoot.quaternion.copy(physicsState.quaternion);
+
+        // Invulnerability flash
+        if (hazard.invulnerable) {
+          kart.kartRoot.visible = Math.floor(now * 0.015) % 2 === 0;
+        } else {
+          kart.kartRoot.visible = true;
+        }
+      }
+
+      // Check Jump Air/Land transitions
+      if (physicsState.hopHeight > 0.001) {
+        wasAirborne = true;
+      } else if (wasAirborne && physicsState.hopHeight <= 0.0005) {
+        audio.playJumpLand();
+        wasAirborne = false;
+      }
 
       // Update visuals & audio
       kart.updateKartVisuals(dt, physicsState);
@@ -229,29 +362,13 @@ async function initCircuitRacer() {
 
       if (gameState === 'RACING') {
         raceTimer += dt;
-        hud.setTime(raceTimer);
+        hud.setTime(physicsState.totalRaceTime || raceTimer);
+        hud.setLap(physicsState.lapCount || 1);
 
-        // Lap detection
-        if (physicsState.lapCompleted) {
-          currentLap++;
-          if (currentLap <= TOTAL_LAPS) {
-            hud.setLap(currentLap);
-            hud.showAlert(`LAP ${currentLap}!`);
-          } else {
-            // Race finished
-            gameState = 'FINISHED';
-            hud.showAlert('FINISH!', 4000);
-
-            // Reward coins: 50 completion + 100 clean run bonus
-            const bonusCoins = 150;
-            profileState.addCoins(bonusCoins);
-            hud.setCoins(profileState.getCoins());
-
-            // Submit score to start.ng
-            const finalScore = Math.max(10, Math.floor(10000 - raceTimer * 80));
-            saveScore(finalScore).catch((e) => console.warn('Score submission error', e));
-          }
-        }
+        // Check active track collisions
+        collectibles.checkCollisions(physicsState.position);
+        boostPads.checkTrigger(physicsState.s, physicsState.lateralOffset);
+        jumpRamp.checkTrigger(physicsState.s, physicsState.speed);
       }
 
       // Smooth 3rd person chase camera aligned with track normal & tangent
