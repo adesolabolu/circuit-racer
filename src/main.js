@@ -35,13 +35,16 @@ async function initCircuitRacer() {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.95;
+  console.log('[CircuitRacer] 1. Creating scene and renderer');
   container.appendChild(renderer.domElement);
 
   // 2. ATMOSPHERE & LATE-NIGHT HACKER WORKBENCH DIORAMA
+  console.log('[CircuitRacer] 2. Building atmosphere & diorama');
   const atmosphere = buildAtmosphere(scene);
   const diorama = buildHackerWorkbenchDiorama(scene);
 
   // 3. FETCH MANIFEST & TRACK SPLINE
+  console.log('[CircuitRacer] 3. Fetching manifest & track spline');
   const [manifestRes, splineRes] = await Promise.all([
     fetch('/assets/data/desk_manifest.json'),
     fetch('/assets/data/track_spline.json'),
@@ -50,6 +53,7 @@ async function initCircuitRacer() {
   const splineData = await splineRes.json();
 
   // 4. BUILD COASTER TRACK
+  console.log('[CircuitRacer] 4. Building coaster track');
   const coaster = buildCoasterTrack(splineData);
   scene.add(coaster.trackGroup);
   if (coaster.underTrackLedGroup) {
@@ -57,11 +61,14 @@ async function initCircuitRacer() {
   }
 
   // 5. MICRO-KART & DRIVER
+  console.log('[CircuitRacer] 5. Building micro-kart');
   const kart = buildMicroKart();
   scene.add(kart.kartRoot);
 
   // 6. FETCH START.NG PLAYER & APPLY AVATAR STYLE
+  console.log('[CircuitRacer] 6. Fetching start.ng player');
   const player = await getPlayer();
+  console.log('[CircuitRacer] 6b. Player:', player);
   if (player && player.style && kart.driver) {
     kart.driver.applyStyle(player.style);
   }
@@ -73,11 +80,13 @@ async function initCircuitRacer() {
   });
 
   // 7. RAPIER3D PHYSICS CONTROLLER & AUDIO SYNTH
+  console.log('[CircuitRacer] 7. Initializing physics controller');
   const physics = await createKartPhysicsController(
     splineData,
     manifest,
     coaster.roadGeo
   );
+  console.log('[CircuitRacer] 7b. Physics initialized');
 
   const audio = createWebAudioSynth();
 
@@ -130,9 +139,25 @@ async function initCircuitRacer() {
   }
 
   // Camera settings
-  const chasePos = new THREE.Vector3();
-  const chaseLook = new THREE.Vector3();
+  const chasePos = initSt.position
+    .clone()
+    .addScaledVector(initSt.tangent, -0.0154)
+    .addScaledVector(initSt.normal, 0.0074);
+  const chaseLook = initSt.position
+    .clone()
+    .addScaledVector(initSt.tangent, 0.024)
+    .addScaledVector(initSt.normal, 0.0030);
   let attractOrbitAngle = 0.5;
+
+  window.__debugCamera = () => ({
+    cameraPos: camera.position.toArray(),
+    cameraLook: chaseLook.toArray(),
+    cameraUp: camera.up.toArray(),
+    kartPos: kart.kartRoot.position.toArray(),
+    physicsPos: physics?.state?.position?.toArray(),
+    speed: physics?.state?.speed,
+    gameState,
+  });
 
   createTitleScreen({
     player,
@@ -156,6 +181,7 @@ async function initCircuitRacer() {
       hud.showAlert('GO!', 1200);
       gameState = 'RACING';
       raceTimer = 0;
+      physics.notifyLightsOut?.();
     }, 2000);
   }
 
@@ -180,89 +206,77 @@ async function initCircuitRacer() {
         target.y + 0.042,
         target.z + Math.sin(attractOrbitAngle) * radius
       );
+      camera.up.set(0, 1, 0);
       camera.lookAt(target.x, target.y + 0.006, target.z);
 
       // Idle audio & wheel update
       kart.updateKartVisuals(dt, { speed: 0, steerInput: 0 });
     } else {
       // Racing / Countdown / Finished
-      if (physics) {
-        let steerInput = 0;
-        if (keys.left) steerInput -= 1.0;
-        if (keys.right) steerInput += 1.0;
+      const physicsState = physics.stepPhysics(dt);
 
-        let throttleInput = 0;
-        if (gameState === 'RACING') {
-          if (keys.forward) throttleInput += 1.0;
-          if (keys.backward) throttleInput -= 0.65;
-        }
+      // Sync 3D kart position and orientation with physics controller
+      kart.kartRoot.position.copy(physicsState.position);
+      kart.kartRoot.quaternion.copy(physicsState.quaternion);
 
-        const physicsState = physics.step(dt, {
-          throttle: throttleInput,
-          steer: steerInput,
-          drift: keys.drift,
-          boost: keys.boost,
-        });
+      // Update visuals & audio
+      kart.updateKartVisuals(dt, physicsState);
+      audio.update?.(dt, physicsState);
 
-        // Sync 3D kart position and orientation with physics controller
-        kart.kartRoot.position.copy(physicsState.position);
-        kart.kartRoot.quaternion.copy(physicsState.quaternion);
+      // HUD Telemetry
+      const speedKmh = Math.abs(physicsState.speed) * 120;
+      hud.setSpeed(speedKmh);
 
-        // Update visuals & audio
-        kart.updateKartVisuals(dt, physicsState);
-        audio.update?.(dt, physicsState);
+      if (gameState === 'RACING') {
+        raceTimer += dt;
+        hud.setTime(raceTimer);
 
-        // HUD Telemetry
-        const speedKmh = Math.abs(physicsState.speed) * 120;
-        hud.setSpeed(speedKmh);
+        // Lap detection
+        if (physicsState.lapCompleted) {
+          currentLap++;
+          if (currentLap <= TOTAL_LAPS) {
+            hud.setLap(currentLap);
+            hud.showAlert(`LAP ${currentLap}!`);
+          } else {
+            // Race finished
+            gameState = 'FINISHED';
+            hud.showAlert('FINISH!', 4000);
 
-        if (gameState === 'RACING') {
-          raceTimer += dt;
-          hud.setTime(raceTimer);
+            // Reward coins: 50 completion + 100 clean run bonus
+            const bonusCoins = 150;
+            profileState.addCoins(bonusCoins);
+            hud.setCoins(profileState.getCoins());
 
-          // Lap detection
-          if (physicsState.lapCompleted) {
-            currentLap++;
-            if (currentLap <= TOTAL_LAPS) {
-              hud.setLap(currentLap);
-              hud.showAlert(`LAP ${currentLap}!`);
-            } else {
-              // Race finished
-              gameState = 'FINISHED';
-              hud.showAlert('FINISH!', 4000);
-
-              // Reward coins: 50 completion + 100 clean run bonus
-              const bonusCoins = 150;
-              profileState.addCoins(bonusCoins);
-              hud.setCoins(profileState.getCoins());
-
-              // Submit score to start.ng
-              const finalScore = Math.max(10, Math.floor(10000 - raceTimer * 80));
-              saveScore(finalScore).catch((e) => console.warn('Score submission error', e));
-            }
+            // Submit score to start.ng
+            const finalScore = Math.max(10, Math.floor(10000 - raceTimer * 80));
+            saveScore(finalScore).catch((e) => console.warn('Score submission error', e));
           }
         }
-
-        // Smooth 3rd person chase camera
-        const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(physicsState.quaternion);
-        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(physicsState.quaternion);
-
-        const targetCamPos = physicsState.position
-          .clone()
-          .sub(forward.clone().multiplyScalar(0.048))
-          .add(up.clone().multiplyScalar(0.022));
-
-        chasePos.lerp(targetCamPos, Math.min(1, dt * 10));
-        camera.position.copy(chasePos);
-
-        const targetLook = physicsState.position
-          .clone()
-          .add(forward.clone().multiplyScalar(0.025))
-          .add(up.clone().multiplyScalar(0.006));
-
-        chaseLook.lerp(targetLook, Math.min(1, dt * 12));
-        camera.lookAt(chaseLook);
       }
+
+      // Smooth 3rd person chase camera aligned with track normal & tangent
+      const camForward = physicsState.tangent
+        .clone()
+        .applyAxisAngle(physicsState.normal, (physicsState.headingYaw || 0.0) * 0.40)
+        .normalize();
+
+      const desiredCamPos = physicsState.position
+        .clone()
+        .addScaledVector(camForward, -0.0154)
+        .addScaledVector(physicsState.normal, 0.0074 + (physicsState.hopHeight || 0) * 0.38);
+
+      const desiredCamLook = physicsState.position
+        .clone()
+        .addScaledVector(camForward, 0.024)
+        .addScaledVector(physicsState.normal, 0.0030 + (physicsState.hopHeight || 0) * 0.22);
+
+      const smoothFactor = 1.0 - Math.exp(-dt * 18.0);
+      chasePos.lerp(desiredCamPos, smoothFactor);
+      chaseLook.lerp(desiredCamLook, smoothFactor);
+
+      camera.position.copy(chasePos);
+      camera.up.copy(physicsState.normal);
+      camera.lookAt(chaseLook);
     }
 
     renderer.render(scene, camera);
