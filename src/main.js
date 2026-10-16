@@ -24,7 +24,7 @@ async function initCircuitRacer() {
   const scene = new THREE.Scene();
 
   const camera = new THREE.PerspectiveCamera(
-    52,
+    60,
     window.innerWidth / window.innerHeight,
     0.002,
     15.0
@@ -214,16 +214,32 @@ async function initCircuitRacer() {
   let raceTimer = 0;
   let wasAirborne = false;
 
-  // Camera settings
+  // Camera modes and settings
+  const CAMERA_MODES = [
+    { name: 'CHASE', dist: -0.054, height: 0.024, lookAhead: 0.038, lookHeight: 0.006 },
+    { name: 'FAR CHASE', dist: -0.086, height: 0.040, lookAhead: 0.048, lookHeight: 0.008 },
+    { name: 'HOOD CAM', dist: 0.009, height: 0.008, lookAhead: 0.052, lookHeight: 0.004 },
+  ];
+  let currentCamModeIdx = 0;
+
+  const curCamInit = CAMERA_MODES[currentCamModeIdx];
   const chasePos = initSt.position
     .clone()
-    .addScaledVector(initSt.tangent, -0.0154)
-    .addScaledVector(initSt.normal, 0.0074);
+    .addScaledVector(initSt.tangent, curCamInit.dist)
+    .addScaledVector(initSt.normal, curCamInit.height);
   const chaseLook = initSt.position
     .clone()
-    .addScaledVector(initSt.tangent, 0.024)
-    .addScaledVector(initSt.normal, 0.0030);
+    .addScaledVector(initSt.tangent, curCamInit.lookAhead)
+    .addScaledVector(initSt.normal, curCamInit.lookHeight);
   let attractOrbitAngle = 0.5;
+
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyC') {
+      currentCamModeIdx = (currentCamModeIdx + 1) % CAMERA_MODES.length;
+      const mode = CAMERA_MODES[currentCamModeIdx];
+      hud.showAlert(`CAM: ${mode.name}`, 1000);
+    }
+  });
 
   window.__debugCamera = () => ({
     cameraPos: camera.position.toArray(),
@@ -371,7 +387,8 @@ async function initCircuitRacer() {
         jumpRamp.checkTrigger(physicsState.s, physicsState.speed);
       }
 
-      // Smooth 3rd person chase camera aligned with track normal & tangent
+      // Dynamic chase camera aligned with track normal & tangent
+      const curCam = CAMERA_MODES[currentCamModeIdx];
       const camForward = physicsState.tangent
         .clone()
         .applyAxisAngle(physicsState.normal, (physicsState.headingYaw || 0.0) * 0.40)
@@ -379,15 +396,15 @@ async function initCircuitRacer() {
 
       const desiredCamPos = physicsState.position
         .clone()
-        .addScaledVector(camForward, -0.0154)
-        .addScaledVector(physicsState.normal, 0.0074 + (physicsState.hopHeight || 0) * 0.38);
+        .addScaledVector(camForward, curCam.dist)
+        .addScaledVector(physicsState.normal, curCam.height + (physicsState.hopHeight || 0) * 0.38);
 
       const desiredCamLook = physicsState.position
         .clone()
-        .addScaledVector(camForward, 0.024)
-        .addScaledVector(physicsState.normal, 0.0030 + (physicsState.hopHeight || 0) * 0.22);
+        .addScaledVector(camForward, curCam.lookAhead)
+        .addScaledVector(physicsState.normal, curCam.lookHeight + (physicsState.hopHeight || 0) * 0.22);
 
-      const smoothFactor = 1.0 - Math.exp(-dt * 18.0);
+      const smoothFactor = 1.0 - Math.exp(-dt * 14.0);
       chasePos.lerp(desiredCamPos, smoothFactor);
       chaseLook.lerp(desiredCamLook, smoothFactor);
 

@@ -969,6 +969,21 @@ export function buildCoasterTrack(splineData) {
     [-trussHalfSpan, trussHalfSpan],
   ];
 
+  function hasLowerTrackCollision(tx, tz, topY, baseY) {
+    for (let i = 0; i < N; i++) {
+      const os = samples[i];
+      // If other sample is vertically between baseY and topY
+      if (os.position[1] >= baseY - 0.005 && os.position[1] <= topY - 0.008) {
+        const dx = os.position[0] - tx;
+        const dz = os.position[2] - tz;
+        if (dx * dx + dz * dz < 0.024 * 0.024) {
+          return true; // Pierces or is too close to lower roadbed!
+        }
+      }
+    }
+    return false;
+  }
+
   for (let c = 0; c < numColumns; c++) {
     const s = samples[c * columnStep];
     const topPos = new THREE.Vector3(...s.position);
@@ -976,7 +991,14 @@ export function buildCoasterTrack(splineData) {
 
     const attachY = topPos.y - 0.0032;
     const baseY = getUnderlyingSupportElevation(topPos.x, topPos.z, topPos.y);
-    const colHeight = Math.max(0.006, attachY - baseY);
+    const colHeight = attachY - baseY;
+
+    // Skip columns that are too short (< 14mm: track is already on the desk surface)
+    // OR columns that would plunge down through a lower track level (e.g. spiral helix/corkscrew)!
+    if (colHeight < 0.014 || hasLowerTrackCollision(topPos.x, topPos.z, topPos.y, baseY)) {
+      continue;
+    }
+
     const midY = baseY + colHeight * 0.5;
 
     // Saddle bracket aligned to track orientation

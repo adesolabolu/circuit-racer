@@ -76,7 +76,7 @@ try {
     `
   });
 
-  await new Promise(r => setTimeout(r, 1500));
+  await new Promise(r => setTimeout(r, 3500));
 
   const screenshot = await sendCmd('Page.captureScreenshot', { format: 'png' });
   if (screenshot && screenshot.data) {
