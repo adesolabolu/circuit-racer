@@ -1,0 +1,357 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Orbitron:wght@600;800;900&family=Inter:wght@400;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #100e14;
+  color: #f0f4f8;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+#canvas-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* =========================================================================
+   TITLE SCREEN / ATTRACT MODE OVERLAY
+   ========================================================================= */
+
+.title-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(16, 14, 20, 0.45) 0%, rgba(10, 8, 14, 0.88) 100%);
+  backdrop-filter: blur(4px);
+  transition: opacity 0.4s ease;
+}
+
+.title-overlay.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.title-card {
+  width: min(92vw, 480px);
+  padding: 2.2rem 2.4rem;
+  background: rgba(18, 22, 28, 0.82);
+  border: 1px solid rgba(0, 255, 204, 0.25);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 30px rgba(0, 255, 204, 0.12);
+  border-radius: 16px;
+  text-align: center;
+  backdrop-filter: blur(16px);
+}
+
+.circuit-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  color: #00ffcc;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.circuit-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.4rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+  text-shadow: 0 0 20px rgba(0, 255, 204, 0.5);
+  margin-bottom: 1.5rem;
+}
+
+/* Title User Badge */
+.title-user-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: 1.6rem;
+  text-align: left;
+}
+
+.user-avatar-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: #100e14;
+  flex-shrink: 0;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+.user-info-stack {
+  flex-grow: 1;
+}
+
+.user-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #f0f4f8;
+}
+
+.user-wallet {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: #ffcf4d;
+  font-weight: 700;
+}
+
+.btn-signin-link {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: #00ffcc;
+  text-decoration: none;
+  border: 1px solid rgba(0, 255, 204, 0.4);
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.btn-signin-link:hover {
+  background: rgba(0, 255, 204, 0.15);
+}
+
+/* Menu Actions */
+.title-menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 1.6rem;
+}
+
+.btn-menu-primary {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  background: linear-gradient(135deg, #00ffcc 0%, #00b4d8 100%);
+  color: #09121a;
+  border: none;
+  padding: 14px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 255, 204, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-menu-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 255, 204, 0.55);
+}
+
+.btn-menu-primary .kbd-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.btn-menu-secondary {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 11px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-menu-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.title-controls-hints {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.title-controls-hints b {
+  color: #00ffcc;
+}
+
+/* =========================================================================
+   IN-GAME HUD
+   ========================================================================= */
+
+.game-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.hud-profile-pill {
+  position: absolute;
+  top: 18px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(14, 18, 24, 0.78);
+  border: 1px solid rgba(0, 255, 204, 0.25);
+  padding: 8px 14px;
+  border-radius: 30px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.hud-avatar-disc {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #100e14;
+}
+
+.hud-profile-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.hud-player-name {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #f1f5f9;
+}
+
+.hud-coin-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: #ffcf4d;
+}
+
+/* Lap Counter & Timer */
+.hud-lap-panel {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  text-align: right;
+  background: rgba(14, 18, 24, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 8px 16px;
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+}
+
+.hud-lap-indicator {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #00ffcc;
+  letter-spacing: 0.08em;
+}
+
+.hud-timer-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+/* Speedometer */
+.hud-speedometer-panel {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  background: rgba(14, 18, 24, 0.75);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  padding: 10px 18px;
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+}
+
+.hud-speed-val {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: #00ffcc;
+  min-width: 65px;
+  text-align: right;
+  line-height: 1;
+}
+
+.hud-speed-unit {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 700;
+}
+
+/* Center Alert Banner */
+.hud-center-alert {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.8rem;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 0 25px rgba(0, 255, 204, 0.8);
+  pointer-events: none;
+}
+
+.pop-anim {
+  animation: popScale 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes popScale {
+  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+.hidden {
+  display: none !important;
+}
