@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 import { buildAtmosphere } from './scene/AtmosphereBuilder.js';
 import { buildHackerWorkbenchDiorama } from './scene/HackerWorkbenchBuilder.js';
@@ -14,6 +13,7 @@ import { createHudOverlay } from './ui/HudOverlay.js';
 
 async function initCircuitRacer() {
   const container = document.getElementById('canvas-container');
+  if (!container) return;
 
   // 1. THREE.JS SCENE, RENDERER & CAMERA
   const scene = new THREE.Scene();
@@ -41,22 +41,26 @@ async function initCircuitRacer() {
   const atmosphere = buildAtmosphere(scene);
   const diorama = buildHackerWorkbenchDiorama(scene);
 
-  // 3. FETCH TRACK SPLINE & BUILD COASTER TRACK
-  let splineData = null;
-  try {
-    const res = await fetch('/assets/data/track_spline.json');
-    splineData = await res.json();
-  } catch (err) {
-    console.error('Failed to load track spline data', err);
+  // 3. FETCH MANIFEST & TRACK SPLINE
+  const [manifestRes, splineRes] = await Promise.all([
+    fetch('/assets/data/desk_manifest.json'),
+    fetch('/assets/data/track_spline.json'),
+  ]);
+  const manifest = await manifestRes.json();
+  const splineData = await splineRes.json();
+
+  // 4. BUILD COASTER TRACK
+  const coaster = buildCoasterTrack(splineData);
+  scene.add(coaster.trackGroup);
+  if (coaster.underTrackLedGroup) {
+    scene.add(coaster.underTrackLedGroup);
   }
 
-  const trackMesh = splineData ? buildCoasterTrack(scene, splineData) : null;
-
-  // 4. MICRO-KART & DRIVER
+  // 5. MICRO-KART & DRIVER
   const kart = buildMicroKart();
   scene.add(kart.kartRoot);
 
-  // 5. FETCH START.NG PLAYER & APPLY AVATAR STYLE
+  // 6. FETCH START.NG PLAYER & APPLY AVATAR STYLE
   const player = await getPlayer();
   if (player && player.style && kart.driver) {
     kart.driver.applyStyle(player.style);
@@ -68,23 +72,21 @@ async function initCircuitRacer() {
     }
   });
 
-  // 6. RAPIER3D PHYSICS CONTROLLER & AUDIO SYNTH
-  let physics = null;
-  if (splineData) {
-    try {
-      physics = await createKartPhysicsController(splineData, {
-        maxSpeed: 0.92,
-        boostPower: 1.45,
-        gravityMultiplier: 1.0,
-      });
-    } catch (err) {
-      console.warn('Physics controller initialization fallback', err);
-    }
-  }
+  // 7. RAPIER3D PHYSICS CONTROLLER & AUDIO SYNTH
+  const physics = await createKartPhysicsController(
+    splineData,
+    manifest,
+    coaster.roadGeo
+  );
 
   const audio = createWebAudioSynth();
 
-  // 7. INPUT HANDLING
+  // Initialize kart pose from physics starting gate
+  const initSt = physics.state;
+  kart.kartRoot.position.copy(initSt.position);
+  kart.kartRoot.quaternion.copy(initSt.quaternion);
+
+  // 8. INPUT HANDLING
   const keys = {
     forward: false,
     backward: false,
@@ -113,7 +115,7 @@ async function initCircuitRacer() {
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.boost = false;
   });
 
-  // 8. GAME STATE & UI
+  // 9. GAME STATE & UI
   let gameState = 'ATTRACT'; // 'ATTRACT' | 'COUNTDOWN' | 'RACING' | 'FINISHED'
   let raceTimer = 0;
   let currentLap = 1;
@@ -132,7 +134,7 @@ async function initCircuitRacer() {
   const chaseLook = new THREE.Vector3();
   let attractOrbitAngle = 0.5;
 
-  const titleScreen = createTitleScreen({
+  createTitleScreen({
     player,
     profileState,
     onStartRace: () => {
@@ -157,7 +159,7 @@ async function initCircuitRacer() {
     }, 2000);
   }
 
-  // 9. ANIMATION LOOP
+  // 10. ANIMATION LOOP
   let lastTime = performance.now();
 
   function animate(now) {
@@ -169,15 +171,16 @@ async function initCircuitRacer() {
     diorama.updateLeds(now * 0.001);
 
     if (gameState === 'ATTRACT') {
-      // Cinematic slow turntable orbit around the kart parked on the cutting mat
+      // Cinematic slow turntable orbit around the kart parked on the start gantry
       attractOrbitAngle += dt * 0.35;
-      const radius = 0.22;
+      const target = initSt.position;
+      const radius = 0.085;
       camera.position.set(
-        Math.cos(attractOrbitAngle) * radius,
-        0.085,
-        Math.sin(attractOrbitAngle) * radius
+        target.x + Math.cos(attractOrbitAngle) * radius,
+        target.y + 0.042,
+        target.z + Math.sin(attractOrbitAngle) * radius
       );
-      camera.lookAt(0, 0.015, 0);
+      camera.lookAt(target.x, target.y + 0.006, target.z);
 
       // Idle audio & wheel update
       kart.updateKartVisuals(dt, { speed: 0, steerInput: 0 });
@@ -210,7 +213,7 @@ async function initCircuitRacer() {
         audio.update?.(dt, physicsState);
 
         // HUD Telemetry
-        const speedKmh = Math.abs(physicsState.speed) * 120; // 1:87 scale to virtual km/h
+        const speedKmh = Math.abs(physicsState.speed) * 120;
         hud.setSpeed(speedKmh);
 
         if (gameState === 'RACING') {
@@ -275,8 +278,11 @@ async function initCircuitRacer() {
   });
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-  initCircuitRacer().catch((err) => {
-    console.error('Failed to initialize Circuit Racer:', err);
+// Immediate launch checking document readiness
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    initCircuitRacer().catch((err) => console.error('Initialization error:', err));
   });
-});
+} else {
+  initCircuitRacer().catch((err) => console.error('Initialization error:', err));
+}
