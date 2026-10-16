@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createDriver } from './DriverBuilder.js';
 
 /**
  * Builds the 1:87 HO Micro-Coaster Racing Go-Kart (18mm x 12mm x 8mm)
@@ -431,51 +432,11 @@ export function buildMicroKart() {
   seat.rotation.x = -0.22;
   chassisGroup.add(seat);
 
-  // Driver Torso in Pearl White & Electric Blue Racing Suit
-  const suitMat = new THREE.MeshStandardMaterial({
-    color: 0xf0f4fa,
-    roughness: 0.35,
-    metalness: 0.08,
-  });
-  const torso = new THREE.Mesh(
-    new THREE.BoxGeometry(0.0036, 0.0038, 0.0028),
-    suitMat
-  );
-  torso.position.set(0, 0.0048, -0.0008);
-  torso.rotation.x = 0.14;
-  torso.castShadow = false;
-  chassisGroup.add(torso);
-
-  // Articulated Driver Helmet Group (tilts into corners!)
-  const driverHead = new THREE.Group();
-  driverHead.position.set(0, 0.0078, -0.0004);
-
-  const helmetShell = new THREE.Mesh(
-    new THREE.SphereGeometry(0.0022, 20, 18),
-    new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      roughness: 0.14,
-      metalness: 0.25,
-    })
-  );
-  helmetShell.scale.set(0.95, 1.0, 1.08);
-  helmetShell.castShadow = false;
-  driverHead.add(helmetShell);
-
-  // Iridescent Gold/Blue Visor
-  const visor = new THREE.Mesh(
-    new THREE.SphereGeometry(0.00225, 16, 12, -0.9, 1.8, 1.05, 0.75),
-    new THREE.MeshStandardMaterial({
-      color: 0x1e6bff,
-      emissive: new THREE.Color(0x1e6bff),
-      emissiveIntensity: 0.65,
-      roughness: 0.08,
-      metalness: 0.9,
-    })
-  );
-  visor.rotation.y = Math.PI / 2;
-  driverHead.add(visor);
-  chassisGroup.add(driverHead);
+  // 1:87 Custom start.ng Avatar Driver
+  const driver = createDriver();
+  driver.root.position.set(0, 0.0032, -0.0012);
+  driver.root.rotation.y = Math.PI; // Driver faces +Z forward in kart coordinates
+  chassisGroup.add(driver.root);
 
   // Steering Column & Rotating Steering Wheel
   const steeringWheel = new THREE.Mesh(
@@ -713,8 +674,7 @@ export function buildMicroKart() {
       p.rotation.y = THREE.MathUtils.lerp(p.rotation.y, targetSteerRad, Math.min(1, dt * 16));
     }
     steeringWheel.rotation.z = targetSteerRad * 1.6;
-    driverHead.rotation.z = -targetSteerRad * 0.45;
-    driverHead.rotation.y = targetSteerRad * 0.55;
+    driver.lean(targetSteerRad * 1.5);
   }
 
   function updateKartVisuals(dt, state) {
@@ -855,8 +815,7 @@ export function buildMicroKart() {
     engineBlock,
     rearWing,
     seat,
-    torso,
-    driverHead,
+    driver.root,
     steeringWheel,
     ...frontPivots,
     wheelMeshes[2],
@@ -1071,6 +1030,7 @@ export function buildMicroKart() {
   return {
     kartRoot,
     chassisGroup,
+    driver,
     sparkPoints,
     sparkFireLight,
     setFireLightMultiplier,
