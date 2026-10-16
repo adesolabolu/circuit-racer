@@ -889,6 +889,147 @@ export function createDeskRacerHybridAudio(options = {}) {
     });
   }
 
+  function playChipPickup() {
+    if (!ctx || !enabled) return;
+    const now = ctx.currentTime;
+    const notes = [
+      { freq: 1046.50, delay: 0.00, dur: 0.12 },
+      { freq: 1318.51, delay: 0.04, dur: 0.12 },
+      { freq: 1567.98, delay: 0.08, dur: 0.20 },
+    ];
+
+    notes.forEach(({ freq, delay, dur }) => {
+      const t0 = now + delay;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, t0);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.06, t0 + dur);
+
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.linearRampToValueAtTime(0.18, t0 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.01);
+    });
+  }
+
+  function playBoostPad() {
+    if (!ctx || !enabled) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.exponentialRampToValueAtTime(720, now + 0.28);
+
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(450, now);
+    filter.frequency.exponentialRampToValueAtTime(2800, now + 0.25);
+    filter.Q.value = 3.5;
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.24, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.36);
+  }
+
+  function playJumpLaunch() {
+    if (!ctx || !enabled) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(140, now);
+    osc.frequency.exponentialRampToValueAtTime(380, now + 0.22);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.18, now + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.28);
+  }
+
+  function playJumpLand() {
+    if (!ctx || !enabled) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(95, now);
+    osc.frequency.exponentialRampToValueAtTime(45, now + 0.16);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.22, now + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.20);
+  }
+
+  function playFallGlitch() {
+    if (!ctx || !enabled) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.linearRampToValueAtTime(110, now + 0.32);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.20, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.36);
+  }
+
+  function playRespawnSound() {
+    if (!ctx || !enabled) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(580, now);
+    osc.frequency.exponentialRampToValueAtTime(1160, now + 0.25);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.20, now + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.30);
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.32);
+  }
+
   return {
     preload,
     toggle,
@@ -898,6 +1039,12 @@ export function createDeskRacerHybridAudio(options = {}) {
     playRaceFinishFanfare,
     playRailImpact,
     playF1CountdownBeep,
+    playChipPickup,
+    playBoostPad,
+    playJumpLaunch,
+    playJumpLand,
+    playFallGlitch,
+    playRespawnSound,
     triggerSputterBurst,
     setRumbleAmount: (v) => {
       userRumbleAmount = Math.max(0.0, Math.min(2.5, Number(v)));
