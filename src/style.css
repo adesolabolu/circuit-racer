@@ -196,6 +196,66 @@ body, html {
   color: #ffffff;
 }
 
+.title-circuit-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 255, 204, 0.25);
+  padding: 8px 16px;
+  border-radius: 20px;
+  margin-bottom: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.title-circuit-pill:hover {
+  background: rgba(0, 255, 204, 0.12);
+  border-color: rgba(0, 255, 204, 0.5);
+  transform: translateY(-1px);
+}
+
+.title-circuit-pill .track-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.title-circuit-pill .track-name-display {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #00ffcc;
+  letter-spacing: 0.05em;
+}
+
+.title-circuit-pill .track-diff-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.title-secondary-btn-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.title-secondary-btn-row .btn-menu-secondary {
+  flex: 1;
+  padding: 10px 8px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
 .title-controls-hints {
   display: flex;
   flex-wrap: wrap;
@@ -274,12 +334,37 @@ body, html {
   position: absolute;
   top: 18px;
   right: 20px;
-  text-align: right;
+  display: flex;
+  align-items: center;
+  gap: 14px;
   background: rgba(14, 18, 24, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.12);
   padding: 8px 16px;
   border-radius: 12px;
   backdrop-filter: blur(12px);
+}
+
+.hud-music-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.hud-music-btn:hover {
+  background: rgba(0, 255, 204, 0.18);
+  border-color: #00ffcc;
+}
+
+.hud-music-btn.muted {
+  opacity: 0.55;
+  filter: grayscale(1);
 }
 
 .hud-lap-indicator {
@@ -297,36 +382,166 @@ body, html {
   color: #ffffff;
 }
 
-/* Speedometer */
-.hud-speedometer-panel {
+/* Professional Radial Tachometer & Speedometer Cluster */
+.hud-speedometer-cluster {
   position: absolute;
-  bottom: 24px;
-  right: 24px;
+  bottom: 20px;
+  right: 22px;
+  width: 165px;
+  height: 165px;
   display: flex;
-  align-items: baseline;
-  gap: 6px;
-  background: rgba(14, 18, 24, 0.75);
-  border: 1px solid rgba(0, 255, 204, 0.2);
-  padding: 10px 18px;
-  border-radius: 12px;
-  backdrop-filter: blur(12px);
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(14, 20, 30, 0.88) 0%, rgba(10, 14, 22, 0.94) 100%);
+  border: 1px solid rgba(0, 255, 204, 0.28);
+  border-radius: 50%;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65), inset 0 0 20px rgba(0, 255, 204, 0.08);
+}
+
+.speedo-gauge-svg {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 160px;
+  height: 160px;
+  transform: rotate(150deg);
+  transform-origin: 80px 80px;
+  pointer-events: none;
+}
+
+.speedo-track-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 9;
+  stroke-linecap: round;
+  stroke-dasharray: 268.08 402.12;
+}
+
+.speedo-track-fill {
+  fill: none;
+  stroke: url(#speedoGrad);
+  stroke-width: 9;
+  stroke-linecap: round;
+  stroke-dasharray: 268.08 402.12;
+  stroke-dashoffset: 268.08;
+  filter: url(#speedoGlow);
+  transition: stroke-dashoffset 0.08s ease-out;
+}
+
+.speedo-center-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  margin-top: 4px;
+}
+
+.speedo-gear-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin-bottom: 2px;
+}
+
+.speedo-gear-row .gear-lbl {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.58rem;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.speedo-gear-row .gear-val {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: #00ffcc;
+  min-width: 14px;
+  text-align: center;
+}
+
+.speedo-gear-row .gear-val.gear-boost {
+  color: #ff0077;
+  text-shadow: 0 0 8px #ff0077;
+  animation: pulse-gear 0.4s infinite alternate;
+}
+
+@keyframes pulse-gear {
+  from { transform: scale(1.0); }
+  to { transform: scale(1.18); }
 }
 
 .hud-speed-val {
   font-family: 'Orbitron', sans-serif;
-  font-size: 2.2rem;
+  font-size: 2.4rem;
   font-weight: 900;
-  color: #00ffcc;
-  min-width: 65px;
-  text-align: right;
-  line-height: 1;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+  text-shadow: 0 0 15px rgba(0, 255, 204, 0.5);
 }
 
 .hud-speed-unit {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  color: #64748b;
-  font-weight: 700;
+  font-size: 0.68rem;
+  color: #00ffcc;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin-top: 2px;
+}
+
+.speedo-nitro-meter {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.nitro-segment {
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  transition: all 0.15s ease;
+}
+
+.nitro-segment.active {
+  background: #00ffee;
+  box-shadow: 0 0 8px #00ffee;
+}
+
+.nitro-segment.blinking {
+  background: #ff0077;
+  box-shadow: 0 0 10px #ff0077;
+  animation: nitro-pulse 0.25s infinite alternate;
+}
+
+@keyframes nitro-pulse {
+  from { opacity: 0.6; }
+  to { opacity: 1.0; }
+}
+
+.hud-btn-icon {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  pointer-events: auto;
+}
+
+.hud-btn-icon:hover {
+  background: rgba(0, 255, 204, 0.18);
+  border-color: #00ffcc;
+  transform: translateY(-1px);
 }
 
 /* Center Alert Banner */
@@ -557,4 +772,872 @@ body, html {
 .btn-tertiary:hover {
   color: #94a3b8;
 }
+
+/* =========================================================================
+   GARAGE MODAL / PHASE 3 WORKBENCH SHOWROOM
+   ========================================================================= */
+
+.garage-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(14, 18, 24, 0.75) 0%, rgba(8, 10, 14, 0.95) 100%);
+  backdrop-filter: blur(12px);
+  transition: opacity 0.25s ease;
+}
+
+.garage-overlay.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.garage-card {
+  width: min(94vw, 880px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  padding: 1.8rem 2.2rem;
+  background: rgba(18, 22, 30, 0.92);
+  border: 1px solid rgba(0, 255, 204, 0.35);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 255, 204, 0.12);
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+}
+
+.garage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0.8rem;
+}
+
+.garage-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.7rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 16px rgba(0, 255, 204, 0.4);
+}
+
+.garage-wallet {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #00ffcc;
+  background: rgba(0, 255, 204, 0.1);
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  padding: 6px 14px;
+  border-radius: 8px;
+}
+
+.garage-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 1.2rem;
+}
+
+.garage-tab-btn {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: rgba(255, 255, 255, 0.04);
+  color: #8b9bb4;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 9px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.garage-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.garage-tab-btn.active {
+  background: rgba(0, 255, 204, 0.15);
+  color: #00ffcc;
+  border-color: #00ffcc;
+  box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+}
+
+.garage-content-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 6px;
+  margin-bottom: 1.4rem;
+}
+
+.garage-content-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.garage-content-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 204, 0.25);
+  border-radius: 3px;
+}
+
+/* Chassis Bay Grid */
+.chassis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.chassis-card {
+  background: rgba(24, 30, 40, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.25s ease;
+}
+
+.chassis-card:hover {
+  border-color: rgba(0, 255, 204, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.chassis-card.selected {
+  border-color: #00ffcc;
+  background: rgba(0, 255, 204, 0.06);
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.18);
+}
+
+.chassis-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.chassis-class-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 3px 8px;
+  border-radius: 4px;
+  color: #94a3b8;
+}
+
+.chassis-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.chassis-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.chassis-tagline {
+  font-size: 0.78rem;
+  color: #8da2be;
+  margin-bottom: 12px;
+}
+
+.chassis-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.stat-bar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.70rem;
+  color: #a0aec0;
+}
+
+.stat-bar-track {
+  width: 55%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.stat-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.chassis-desc {
+  font-size: 0.76rem;
+  color: #64748b;
+  line-height: 1.4;
+  margin-bottom: 14px;
+  flex: 1;
+}
+
+.chassis-action-wrap {
+  margin-top: auto;
+}
+
+.btn-kart-action {
+  width: 100%;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-kart-action.equipped {
+  background: rgba(0, 255, 204, 0.2);
+  color: #00ffcc;
+  border: 1px solid #00ffcc;
+  cursor: default;
+}
+
+.btn-kart-action.select {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-kart-action.select:hover {
+  background: #00ffcc;
+  color: #0d1217;
+  border-color: #00ffcc;
+}
+
+.btn-kart-action.buy {
+  background: linear-gradient(135deg, #ffaa00 0%, #ff6b00 100%);
+  color: #120e06;
+  font-weight: 800;
+}
+
+.btn-kart-action.buy:hover:not(.disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(255, 170, 0, 0.4);
+}
+
+.btn-kart-action.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Upgrades Section */
+.section-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #00ffcc;
+  margin-bottom: 12px;
+}
+
+.upgrades-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.upgrade-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(24, 30, 40, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+
+.upgrade-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.upgrade-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.upgrade-desc {
+  font-size: 0.78rem;
+  color: #8b9bb4;
+}
+
+.upgrade-levels {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.upgrade-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  transition: all 0.2s;
+}
+
+.upgrade-dot.active {
+  background: #00ffcc;
+  box-shadow: 0 0 8px #00ffcc;
+}
+
+.upgrade-level-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-left: 6px;
+}
+
+.btn-upgrade {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-upgrade.buy {
+  background: linear-gradient(135deg, #00ffcc 0%, #00b4d8 100%);
+  color: #0b151e;
+}
+
+.btn-upgrade.buy:hover:not(.disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 255, 204, 0.4);
+}
+
+.btn-upgrade.maxed {
+  background: rgba(255, 255, 255, 0.08);
+  color: #64748b;
+  cursor: default;
+}
+
+.btn-upgrade.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Underglow Palette */
+.underglow-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.underglow-swatch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.underglow-swatch:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.underglow-swatch.active {
+  border-color: var(--swatch-color);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 15px var(--swatch-color);
+}
+
+.swatch-indicator {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: var(--swatch-color);
+  box-shadow: 0 0 8px var(--swatch-color);
+}
+
+.swatch-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+/* Garage Footer */
+.garage-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* =========================================================================
+   HUD MINIMAP (COASTER TRACK TRACE & LIVE KART BLIP)
+   ========================================================================= */
+
+.hud-minimap-container {
+  position: absolute;
+  bottom: 22px;
+  left: 22px;
+  background: rgba(14, 18, 26, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 18px rgba(0, 255, 204, 0.08);
+  border-radius: 14px;
+  padding: 8px;
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+  transition: opacity 0.3s ease;
+}
+
+.hud-minimap-canvas {
+  display: block;
+  border-radius: 8px;
+}
+
+/* =========================================================================
+   TRACK SELECT MODAL
+   ========================================================================= */
+
+.track-select-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 125;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(14, 18, 24, 0.8) 0%, rgba(8, 10, 14, 0.96) 100%);
+  backdrop-filter: blur(14px);
+  transition: opacity 0.25s ease;
+}
+
+.track-select-dialog {
+  width: min(94vw, 920px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  padding: 1.8rem 2.2rem;
+  background: rgba(18, 22, 30, 0.94);
+  border: 1px solid rgba(0, 255, 204, 0.35);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 255, 204, 0.12);
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+}
+
+.ts-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.ts-subheading {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.74rem;
+  color: #00ffcc;
+  letter-spacing: 0.18em;
+  margin-bottom: 4px;
+}
+
+.ts-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 20px rgba(0, 255, 204, 0.4);
+}
+
+.track-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 1.5rem;
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .track-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.track-card {
+  display: flex;
+  flex-direction: column;
+  background: rgba(24, 30, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.2rem;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.track-card:hover {
+  background: rgba(30, 38, 54, 0.85);
+  border-color: rgba(0, 255, 204, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px rgba(0, 255, 204, 0.15);
+}
+
+.track-card.selected {
+  border-color: #00ffcc;
+  background: rgba(0, 255, 204, 0.06);
+  box-shadow: 0 0 25px rgba(0, 255, 204, 0.25);
+}
+
+.track-badge-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+
+.track-diff-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.track-stars {
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+}
+
+.track-card-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 2px;
+}
+
+.track-card-subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: #00ffcc;
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+}
+
+.track-card-desc {
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: #94a3b8;
+  margin-bottom: 1rem;
+  flex: 1;
+}
+
+.track-card-specs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.spec-col {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.spec-label {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.spec-val {
+  color: #cbd5e1;
+  font-weight: 700;
+}
+
+.spec-val.record-val {
+  color: #ff0077;
+  font-weight: 800;
+  text-shadow: 0 0 8px rgba(255, 0, 119, 0.4);
+}
+
+.btn-select-track {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.btn-select-track:hover {
+  background: rgba(0, 255, 204, 0.2);
+  border-color: #00ffcc;
+  color: #ffffff;
+}
+
+.btn-select-track.btn-active-track {
+  background: linear-gradient(135deg, #00ffcc 0%, #00b4d8 100%);
+  color: #09121a;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(0, 255, 204, 0.4);
+}
+
+.ts-footer {
+  display: flex;
+  justify-content: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 1rem;
+}
+
+/* =========================================================================
+   LEADERBOARD MODAL
+   ========================================================================= */
+
+.leaderboard-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 125;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(14, 18, 24, 0.8) 0%, rgba(8, 10, 14, 0.96) 100%);
+  backdrop-filter: blur(14px);
+  transition: opacity 0.25s ease;
+}
+
+.leaderboard-card {
+  width: min(94vw, 840px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  padding: 1.8rem 2.2rem;
+  background: rgba(18, 22, 30, 0.94);
+  border: 1px solid rgba(0, 255, 204, 0.35);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 255, 204, 0.12);
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+}
+
+.lb-header {
+  text-align: center;
+  margin-bottom: 1.2rem;
+}
+
+.lb-subheading {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.74rem;
+  color: #00ffcc;
+  letter-spacing: 0.18em;
+  margin-bottom: 4px;
+}
+
+.lb-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 20px rgba(0, 255, 204, 0.4);
+}
+
+.lb-track-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 1.2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0.8rem;
+}
+
+.lb-tab-btn {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: rgba(255, 255, 255, 0.05);
+  color: #8b9bb4;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.lb-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.lb-tab-btn.active {
+  background: rgba(0, 255, 204, 0.16);
+  color: #00ffcc;
+  border-color: #00ffcc;
+  box-shadow: 0 0 16px rgba(0, 255, 204, 0.2);
+}
+
+.lb-table-wrapper {
+  overflow-y: auto;
+  max-height: 48vh;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 1.2rem;
+  background: rgba(12, 16, 22, 0.6);
+}
+
+.lb-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.lb-table th {
+  position: sticky;
+  top: 0;
+  background: rgba(20, 26, 36, 0.98);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lb-table td {
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: #cbd5e1;
+}
+
+.lb-table tr:hover td {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.player-entry-row td {
+  background: rgba(0, 255, 204, 0.08) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.col-rank {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800;
+  font-size: 0.95rem;
+  width: 50px;
+}
+
+.col-player {
+  font-weight: 700;
+}
+
+.col-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800;
+  color: #00ffcc;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.you-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  font-weight: 900;
+  background: #00ffcc;
+  color: #09121a;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+
+.clean-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.offtrack-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.empty-board {
+  text-align: center;
+  padding: 30px !important;
+  color: #64748b !important;
+  font-style: italic;
+}
+
+.lb-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 1rem;
+}
+
 

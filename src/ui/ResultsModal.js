@@ -10,6 +10,7 @@ export function createResultsModal({
   scoreResult,
   onRaceAgain,
   onGarage,
+  onLeaderboard,
   onMainMenu,
 }) {
   const modalContainer = document.createElement('div');
@@ -78,6 +79,7 @@ export function createResultsModal({
 
       <div class="results-button-row">
         <button id="btn-race-again" class="btn-primary">RACE AGAIN [ENTER]</button>
+        <button id="btn-lb-results" class="btn-secondary">🏆 LEADERBOARD</button>
         <button id="btn-garage-results" class="btn-secondary">GARAGE</button>
         <button id="btn-menu-results" class="btn-tertiary">MAIN MENU</button>
       </div>
@@ -87,6 +89,7 @@ export function createResultsModal({
   document.body.appendChild(modalContainer);
 
   const btnRaceAgain = modalContainer.querySelector('#btn-race-again');
+  const btnLb = modalContainer.querySelector('#btn-lb-results');
   const btnGarage = modalContainer.querySelector('#btn-garage-results');
   const btnMenu = modalContainer.querySelector('#btn-menu-results');
 
@@ -108,6 +111,13 @@ export function createResultsModal({
     cleanup();
     if (typeof onRaceAgain === 'function') onRaceAgain();
   });
+
+  if (btnLb) {
+    btnLb.addEventListener('click', () => {
+      cleanup();
+      if (typeof onLeaderboard === 'function') onLeaderboard();
+    });
+  }
 
   btnGarage.addEventListener('click', () => {
     cleanup();

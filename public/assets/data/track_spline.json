@@ -1,9 +1,9 @@
 {
   "name": "Golden-Hour 1:87 Micro-Coaster 6-Sector Closed Loop",
   "is_closed_periodic_loop": true,
-  "track_width_m": 0.022,
-  "curb_width_m": 0.0025,
-  "rail_height_m": 0.0035,
+  "track_width_m": 0.034,
+  "curb_width_m": 0.0028,
+  "rail_height_m": 0.0028,
   "total_length_m": 3.6074,
   "scale_equivalent_length_m": 313.8,
   "num_control_points": 40,

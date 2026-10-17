@@ -680,9 +680,9 @@ export function buildCoasterTrack(splineData) {
   const samples = splineData.samples;
   cachedSplineSamples = samples;
   const N = samples.length; // 720 periodic samples
-  const halfWidth = (splineData.track_width_m || 0.022) * 0.5; // 0.011m (11mm half-width)
-  const curbWidth = splineData.curb_width_m || 0.0017; // 1.7mm FIA curbs (1:150 scale)
-  const railHeight = (splineData.rail_height_m || 0.0018) * 0.52; // Lower-profile 0.94mm side guardrails matching 0.38x kart
+  const halfWidth = (splineData.track_width_m || 0.034) * 0.5; // 0.017m (17mm half-width)
+  const curbWidth = splineData.curb_width_m || 0.0028; // 2.8mm FIA curbs
+  const railHeight = (splineData.rail_height_m || 0.0028) * 0.65; // Low-profile side guardrails
   const deckThickness = 0.0018;
 
   const gantryTex = createCheckeredGantryTexture();
@@ -976,7 +976,8 @@ export function buildCoasterTrack(splineData) {
       if (os.position[1] >= baseY - 0.005 && os.position[1] <= topY - 0.008) {
         const dx = os.position[0] - tx;
         const dz = os.position[2] - tz;
-        if (dx * dx + dz * dz < 0.024 * 0.024) {
+        const minClearance = halfWidth + 0.007;
+        if (dx * dx + dz * dz < minClearance * minClearance) {
           return true; // Pierces or is too close to lower roadbed!
         }
       }
@@ -1055,8 +1056,9 @@ export function buildCoasterTrack(splineData) {
   gantryGroup.name = 'StartFinishGantry';
   gantryGroup.position.set(0.0183, 0.035, 0.255);
 
-  // Overhead gantry truss towers on Z = -0.018 and Z = +0.018 (track runs East-to-West along X here)
-  for (const gz of [-0.018, 0.018]) {
+  const gantrySpanZ = halfWidth + 0.0075;
+  // Overhead gantry truss towers spanning cleanly across the widened roadbed
+  for (const gz of [-gantrySpanZ, gantrySpanZ]) {
     const tower = new THREE.Mesh(
       new THREE.BoxGeometry(0.0040, 0.028, 0.0040),
       silverSteelMat
@@ -1066,9 +1068,10 @@ export function buildCoasterTrack(splineData) {
     gantryGroup.add(tower);
   }
 
-  // Overhead digital signboard spanning across the track (lowered for 1:150 N-scale)
+  // Overhead digital signboard spanning across the track
+  const signWidthZ = gantrySpanZ * 2 + 0.004;
   const signBox = new THREE.Mesh(
-    new THREE.BoxGeometry(0.0048, 0.0082, 0.040),
+    new THREE.BoxGeometry(0.0048, 0.0082, signWidthZ),
     new THREE.MeshStandardMaterial({ color: 0x161922, roughness: 0.35, metalness: 0.6 })
   );
   signBox.position.set(0, 0.024, 0);
@@ -1086,25 +1089,25 @@ export function buildCoasterTrack(splineData) {
     [0.0026, Math.PI / 2],
     [-0.0026, -Math.PI / 2],
   ]) {
-    const signFace = new THREE.Mesh(new THREE.PlaneGeometry(0.036, 0.0072), signFaceMat);
+    const signFace = new THREE.Mesh(new THREE.PlaneGeometry(signWidthZ - 0.004, 0.0072), signFaceMat);
     signFace.position.set(sx, 0.024, 0);
     signFace.rotation.y = rotY;
     gantryGroup.add(signFace);
   }
 
-  // 5 F1 Starting LED Pods (0.6x scale for 1:150 N-scale)
+  // 5 F1 Starting LED Pods
   for (let l = -2; l <= 2; l++) {
     const ledPod = new THREE.Mesh(
       new THREE.SphereGeometry(0.00085, 10, 10),
       new THREE.MeshBasicMaterial({ color: l === 0 ? 0x32d74b : 0xffaa44 })
     );
-    ledPod.position.set(0.0026, 0.0188, l * 0.0038);
+    ledPod.position.set(0.0026, 0.0188, l * 0.0044);
     gantryGroup.add(ledPod);
   }
 
   // Checkered Start/Finish Line Stripe directly on the Sector 6 roadbed
   const startStripe = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.0035, 0.021),
+    new THREE.PlaneGeometry(0.0035, halfWidth * 2),
     new THREE.MeshBasicMaterial({ map: gantryTex })
   );
   startStripe.rotation.x = -Math.PI / 2;

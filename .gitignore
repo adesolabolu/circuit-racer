@@ -1,5 +1,6 @@
 node_modules/
-dist/
 .superpowers/
 .env.local
 .DS_Store
+
+.vercel

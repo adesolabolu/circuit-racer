@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-const PICKUP_RADIUS_SQ = 0.016 * 0.016; // ~16mm pickup radius
+const PICKUP_RADIUS_SQ = 0.020 * 0.020; // ~20mm pickup radius
 const CHIP_VALUE = 10; // +10 Coins/Bits per chip
 
 /**
@@ -127,7 +127,7 @@ export function createTrackCollectibles(splineData, scene, options = {}) {
     const latOffset = (i % 3 === 1) ? -0.0035 : (i % 3 === 2) ? 0.0035 : 0.0;
     const basePos = pos.clone()
       .addScaledVector(right, latOffset)
-      .addScaledVector(normal, 0.0065); // Float 6.5mm above track
+      .addScaledVector(normal, 0.0120); // Float 12mm above track cleanly
 
     const mesh = createChipMesh();
     mesh.position.copy(basePos);

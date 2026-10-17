@@ -50,40 +50,26 @@ export function createBoostPads(splineData, scene, options = {}) {
   function buildPadMesh() {
     const padRoot = new THREE.Group();
 
-    // 1. Base embedded track strip
-    const baseGeo = new THREE.BoxGeometry(0.015, 0.0004, 0.024);
+    // 1. Embedded flush base track strip
+    const baseGeo = new THREE.BoxGeometry(0.024, 0.0002, 0.034);
     const base = new THREE.Mesh(baseGeo, baseMat);
     padRoot.add(base);
 
-    // 2. Dual forward-pointing chevrons
-    const chevronGeo = new THREE.BoxGeometry(0.011, 0.0006, 0.0035);
-    const c1 = new THREE.Mesh(chevronGeo, chevronMat);
-    c1.position.set(0, 0.0003, -0.0045);
-    padRoot.add(c1);
+    // 2. Triple forward-pointing high-tech cyan chevrons
+    const chevronGeo = new THREE.BoxGeometry(0.016, 0.0004, 0.0045);
+    for (const zOffset of [-0.0085, 0.0, 0.0085]) {
+      const c = new THREE.Mesh(chevronGeo, chevronMat);
+      c.position.set(0, 0.0002, zOffset);
+      padRoot.add(c);
+    }
 
-    const c2 = new THREE.Mesh(chevronGeo, chevronMat);
-    c2.position.set(0, 0.0003, 0.0045);
-    padRoot.add(c2);
-
-    // 3. Dual side electrolytic capacitors (stands beside track rail)
-    const capGeo = new THREE.CylinderGeometry(0.0022, 0.0022, 0.006, 12);
-    const capTopGeo = new THREE.CylinderGeometry(0.0021, 0.0021, 0.0004, 12);
-
-    // Left cap
-    const capLeft = new THREE.Mesh(capGeo, capBodyMat);
-    capLeft.position.set(-0.011, 0.003, 0);
-    const capTopL = new THREE.Mesh(capTopGeo, capTopMat);
-    capTopL.position.set(-0.011, 0.0062, 0);
-    padRoot.add(capLeft);
-    padRoot.add(capTopL);
-
-    // Right cap
-    const capRight = new THREE.Mesh(capGeo, capBodyMat);
-    capRight.position.set(0.011, 0.003, 0);
-    const capTopR = new THREE.Mesh(capTopGeo, capTopMat);
-    capTopR.position.set(0.011, 0.0062, 0);
-    padRoot.add(capRight);
-    padRoot.add(capTopR);
+    // 3. Flush neon side indicator tracks (no vertical obstacles!)
+    const edgeGeo = new THREE.BoxGeometry(0.0012, 0.0004, 0.032);
+    for (const sx of [-0.0115, 0.0115]) {
+      const edge = new THREE.Mesh(edgeGeo, chevronMat);
+      edge.position.set(sx, 0.0002, 0);
+      padRoot.add(edge);
+    }
 
     return padRoot;
   }
@@ -130,8 +116,8 @@ export function createBoostPads(splineData, scene, options = {}) {
         ds = totalLength - ds;
       }
 
-      // Check within 18mm trigger zone along track and within road width
-      if (ds <= 0.018 && Math.abs(kartLateralOffset || 0) <= 0.008) {
+      // Check within 18mm trigger zone along track and within wider road width
+      if (ds <= 0.018 && Math.abs(kartLateralOffset || 0) <= 0.013) {
         pad.cooldown = 1.4; // 1.4s cooldown
         if (typeof onBoost === 'function') {
           onBoost(pad);

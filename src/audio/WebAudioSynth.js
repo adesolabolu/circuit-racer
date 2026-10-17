@@ -84,8 +84,8 @@ function computeCrispRegimeWeights(f0) {
  * @return {!Object}
  */
 export function createDeskRacerHybridAudio(options = {}) {
-  const baseUrl = (options.baseUrl || '/assets/audio').replace(/\/$/, '');
-  const masterVolume = options.masterVolume ?? 0.28;
+  const baseUrl = (options.baseUrl || './assets/audio').replace(/\/$/, '');
+  const masterVolume = options.masterVolume ?? 0.55;
   const cacheBust = options.cacheBust || 'v=8';
 
   let ctx = null;
@@ -102,6 +102,12 @@ export function createDeskRacerHybridAudio(options = {}) {
   // Active looping AudioBufferSourceNodes & their GainNodes
   const loopNodes = {};
   const oneShotBuffers = {accel: [], decel: [], boost: [], sputter: []};
+
+  // Procedural Engine Synthesizer layer (guaranteed immediate audio & rich throttle body)
+  let procOscSaw = null;
+  let procOscTri = null;
+  let procEngineFilter = null;
+  let procEngineGain = null;
 
   // Clean LFE Sub-Harmonic Sine Resonator (<95 Hz, Zero WaveShaper Distortion!)
   let rumbleSubOsc = null;
@@ -304,6 +310,31 @@ export function createDeskRacerHybridAudio(options = {}) {
     rumbleOutGain.connect(masterGain);
     rumbleSubOsc.start();
 
+    // Procedural Engine Synthesizer layer (guaranteed immediate audio & rich throttle body)
+    procOscSaw = ctx.createOscillator();
+    procOscSaw.type = 'sawtooth';
+    procOscSaw.frequency.value = 65.0;
+
+    procOscTri = ctx.createOscillator();
+    procOscTri.type = 'triangle';
+    procOscTri.frequency.value = 65.0;
+
+    procEngineFilter = ctx.createBiquadFilter();
+    procEngineFilter.type = 'lowpass';
+    procEngineFilter.frequency.value = 850.0;
+    procEngineFilter.Q.value = 2.2;
+
+    procEngineGain = ctx.createGain();
+    procEngineGain.gain.value = 0.0;
+
+    procOscSaw.connect(procEngineFilter);
+    procOscTri.connect(procEngineFilter);
+    procEngineFilter.connect(procEngineGain);
+    procEngineGain.connect(masterGain);
+
+    procOscSaw.start();
+    procOscTri.start();
+
     loadAllStems();
   }
 
@@ -416,8 +447,14 @@ export function createDeskRacerHybridAudio(options = {}) {
     return setEnabled(!enabled);
   }
 
-  function update(state) {
-    if (!enabled || !ctx || ctx.state !== 'running') return;
+  function update(arg1, arg2) {
+    const state = (arg1 && typeof arg1 === 'object') ? arg1 : (arg2 && typeof arg2 === 'object') ? arg2 : {};
+    if (!enabled) return;
+    if (!ctx) initAudio();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    if (!ctx || ctx.state !== 'running') return;
 
     const nowMs = performance.now();
     const dt = Math.min(0.1, Math.max(0.004, (nowMs - prevTimeMs) * 0.001));
@@ -583,6 +620,22 @@ export function createDeskRacerHybridAudio(options = {}) {
               (0.85 + 0.35 * Math.min(1.0, clampedNorm) +
                Math.max(0.0, smoothHillAndCurlLoad) * 0.8));
       rumbleOutGain.gain.setTargetAtTime(subGain, now, 0.04);
+    }
+
+    // 5. Procedural Engine Synthesizer layer (instant roar on W / throttle)
+    if (procOscSaw && procOscTri && procEngineGain && procEngineFilter) {
+      const procHz = Math.min(380.0, 68.0 + smoothNormSpeed * 210.0 + (isBoostActive ? 52.0 : 0.0) + Math.max(0, accelKick * 42.0));
+      procOscSaw.frequency.setTargetAtTime(procHz, now, 0.035);
+      procOscTri.frequency.setTargetAtTime(procHz * 0.5, now, 0.035);
+
+      const filterCut = Math.min(3600.0, 560.0 + smoothNormSpeed * 2400.0 + (isBoostActive ? 720.0 : 0.0));
+      procEngineFilter.frequency.setTargetAtTime(filterCut, now, 0.035);
+
+      // Distinct mechanical engine rumble & roar (louder when stems are not loaded)
+      const baseGain = stemsLoaded
+        ? 0.12 + 0.18 * Math.min(1.0, smoothNormSpeed)
+        : 0.24 + 0.38 * Math.min(1.0, smoothNormSpeed);
+      procEngineGain.gain.setTargetAtTime(baseGain, now, 0.035);
     }
 
     // Tire Drift Scrub & FIA Curb Rumble loops

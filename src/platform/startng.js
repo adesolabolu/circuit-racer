@@ -1,5 +1,5 @@
 // Official start.ng platform connector bridge for Circuit Racer.
-// Protocol reverse-engineered from production start.ng arcade titles (lanedash, suya-catcher).
+// Implements https://start.ng/docs.md specifications.
 
 const CONNECT_ORIGIN = "https://start.ng";
 const CONNECT_URL = `${CONNECT_ORIGIN}/connect`;
@@ -13,6 +13,21 @@ export const onStartng = isBrowser && (
 );
 
 export const isGuest = isBrowser && new URLSearchParams(location.search).has("guest");
+
+// Pick up game session token from hash (#startng_session=...) if present
+if (isBrowser) {
+  try {
+    const hash = location.hash.slice(1);
+    if (hash) {
+      const params = new URLSearchParams(hash);
+      const session = params.get("startng_session");
+      if (session) {
+        sessionStorage.setItem("startng_session", session);
+        history.replaceState(null, "", location.pathname + location.search);
+      }
+    }
+  } catch {}
+}
 
 // 5 Official start.ng Character Presets for Offline/Localhost Play
 export const testStyles = [
@@ -54,6 +69,7 @@ function connect() {
     frame.src = CONNECT_URL;
     frame.title = "start.ng connection";
     frame.style.display = "none";
+    frame.hidden = true;
     frame.addEventListener("load", () => resolve(), { once: true });
     frame.addEventListener("error", () => reject(new Error("Could not reach start.ng")), { once: true });
     document.body.appendChild(frame);
@@ -61,9 +77,11 @@ function connect() {
 
   window.addEventListener("message", (e) => {
     if (e.origin !== CONNECT_ORIGIN) return; // Strict origin protection
-    const pending = waiting.get(e.data?.requestId);
+    const reqId = String(e.data?.requestId);
+    const pending = waiting.get(reqId);
     if (!pending) return;
-    waiting.delete(e.data.requestId);
+    if (pending.replyType && e.data?.type !== pending.replyType) return;
+    waiting.delete(reqId);
     clearTimeout(pending.timer);
     pending.resolve(e.data);
   });
@@ -71,28 +89,28 @@ function connect() {
   return ready;
 }
 
-async function ask(message) {
+async function ask(message, replyType = null) {
   await connect();
   return new Promise((resolve, reject) => {
-    const requestId = nextId++;
+    const requestId = String(nextId++);
     const timer = setTimeout(() => {
       waiting.delete(requestId);
       reject(new Error("start.ng did not answer"));
     }, TIMEOUT_MS);
-    waiting.set(requestId, { resolve, timer });
+    waiting.set(requestId, { resolve, timer, replyType });
     frame.contentWindow.postMessage({ ...message, requestId }, CONNECT_ORIGIN);
   });
 }
 
-/** Returns the signed-in player: { id, name, style }, or fallback TEST_USER if offline */
+/** Returns the signed-in player: { id, name, style, face }, or start.ng guest, or fallback TEST_USER */
 export async function getPlayer() {
   if (!onStartng) {
     if (isGuest) return null;
     return TEST_USER;
   }
   try {
-    const reply = await ask({ type: "startng:whoami" });
-    return reply.user ?? null;
+    const reply = await ask({ type: "startng:whoami" }, "startng:user");
+    return reply?.user ?? reply?.guest ?? null;
   } catch (err) {
     console.warn("Failed to reach start.ng, falling back to guest mode", err);
     return null;
@@ -102,27 +120,40 @@ export async function getPlayer() {
 const LOCAL_STORAGE_KEY = "circuit_racer:scores";
 
 /** Save player score / time to start.ng or local fallback */
-export async function saveScore(score) {
-  const rounded = Math.floor(score);
-  if (!onStartng) {
-    const scores = getLocalScores();
-    const prev = scores[TEST_USER.id]?.score ?? 0;
-    const improved = rounded > prev;
-    const best = Math.max(prev, rounded);
-    scores[TEST_USER.id] = { score: best, name: TEST_USER.name, color: TEST_USER.style.primaryColor };
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(scores));
+export async function saveScore(scoreOrPayload) {
+  let payload = {};
+  if (typeof scoreOrPayload === "number") {
+    payload = { type: "startng:score", score: Math.floor(scoreOrPayload) };
+  } else if (scoreOrPayload && typeof scoreOrPayload === "object") {
+    if (scoreOrPayload.stats) {
+      payload = { type: "startng:score", stats: scoreOrPayload.stats };
+    } else if (typeof scoreOrPayload.score === "number") {
+      payload = { type: "startng:score", score: Math.floor(scoreOrPayload.score) };
     }
-    return { best, improved, rank: 1, local: true };
   }
 
-  const reply = await ask({ type: "startng:score", score: rounded });
-  if (!reply.ok) throw new Error(reply.error || "Could not save the score");
+  if (!onStartng) {
+    const scores = getLocalScores();
+    const numericScore = payload.score ?? (payload.stats ? payload.stats.chips * 10 : 100);
+    const prev = scores[TEST_USER.id]?.score ?? 0;
+    const improved = numericScore > prev;
+    const best = Math.max(prev, numericScore);
+    scores[TEST_USER.id] = { score: best, name: TEST_USER.name, color: TEST_USER.style.primaryColor, stats: payload.stats };
+    if (typeof localStorage !== "undefined") {
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(scores));
+      } catch {}
+    }
+    return { best, improved, rank: 1, local: true, stats: payload.stats };
+  }
+
+  const reply = await ask(payload, "startng:scoreSaved");
+  if (!reply?.ok) throw new Error(reply?.error || "Could not save the score");
   return reply.result;
 }
 
 /** Top players for this game */
-export async function getLeaderboard(limit = 5) {
+export async function getLeaderboard(limit = 10) {
   if (!onStartng) {
     const scores = getLocalScores();
     return Object.values(scores)
@@ -131,8 +162,8 @@ export async function getLeaderboard(limit = 5) {
       .map((entry, idx) => ({ rank: idx + 1, ...entry }));
   }
 
-  const reply = await ask({ type: "startng:leaderboard", limit });
-  if (!reply.ok) throw new Error(reply.error || "Could not load the leaderboard");
+  const reply = await ask({ type: "startng:leaderboard", limit }, "startng:leaderboardData");
+  if (!reply?.ok) throw new Error(reply?.error || "Could not load the leaderboard");
   return reply.entries;
 }
 

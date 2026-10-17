@@ -33,32 +33,27 @@ export function createJumpRamp(splineData, scene, options = {}) {
   const rampGroup = new THREE.Group();
   rampGroup.name = 'JumpRampGroup';
 
-  // 1. Hazard striped ramp wedge
-  // Slanted box geometry
-  const rampGeo = new THREE.BoxGeometry(0.016, 0.0028, 0.018);
+  // 1. Aerodynamic low-profile launch crest ramp
+  const rampGeo = new THREE.BoxGeometry(0.024, 0.0016, 0.022);
   const rampMat = new THREE.MeshStandardMaterial({
     color: 0xffaa00,
-    roughness: 0.4,
-    metalness: 0.6,
-    emissive: 0x442200,
+    roughness: 0.35,
+    metalness: 0.55,
+    emissive: 0x552a00,
   });
 
   const rampMesh = new THREE.Mesh(rampGeo, rampMat);
-  rampMesh.rotation.x = -0.14; // Incline angle
-  rampMesh.position.y = 0.0012;
+  rampMesh.rotation.x = -0.08; // Smooth aerodynamic launch incline
+  rampMesh.position.y = 0.0006;
   rampGroup.add(rampMesh);
 
-  // 2. Warning LED indicator beacons on the sides
-  const ledGeo = new THREE.CylinderGeometry(0.0008, 0.0008, 0.003, 8);
+  // 2. Flush glowing hazard launch lip strip (zero vertical obstacles!)
+  const ledGeo = new THREE.BoxGeometry(0.024, 0.0004, 0.0025);
   const ledMat = new THREE.MeshBasicMaterial({ color: 0xff3300 });
 
-  const ledLeft = new THREE.Mesh(ledGeo, ledMat);
-  ledLeft.position.set(-0.0095, 0.002, 0.004);
-  rampGroup.add(ledLeft);
-
-  const ledRight = new THREE.Mesh(ledGeo, ledMat);
-  ledRight.position.set(0.0095, 0.002, 0.004);
-  rampGroup.add(ledRight);
+  const ledLip = new THREE.Mesh(ledGeo, ledMat);
+  ledLip.position.set(0, 0.0012, 0.009);
+  rampGroup.add(ledLip);
 
   // Align ramp with track orthonormal basis
   const rotMat = new THREE.Matrix4().makeBasis(right, normal, tangent);

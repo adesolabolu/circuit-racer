@@ -11,7 +11,7 @@ const chromeProc = spawn(CHROME_PATH, [
   '--window-size=1280,720',
   '--disable-gpu',
   '--no-first-run',
-  'http://localhost:5173'
+  'http://127.0.0.1:5173'
 ], { stdio: 'ignore' });
 
 async function getWsUrl() {

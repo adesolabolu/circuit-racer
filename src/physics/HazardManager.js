@@ -15,6 +15,10 @@ export function createHazardManager(splineData, options = {}) {
   const onFall = options.onFall || null;
   const onRespawn = options.onRespawn || null;
 
+  const fallThreshold =
+    options.fallThreshold ??
+    (splineData?.track_width_m ? splineData.track_width_m * 0.5 + 0.004 : FALL_OFFSET_THRESHOLD);
+
   const samples = splineData.samples;
   const totalLength = splineData.total_length_m || 3.8371;
 
@@ -95,7 +99,7 @@ export function createHazardManager(splineData, options = {}) {
     if (invulnerableTimer <= 0) {
       const absLat = Math.abs(physicsState.lateralOffset || 0);
       const isOutOfBounds =
-        absLat > FALL_OFFSET_THRESHOLD ||
+        absLat > fallThreshold ||
         (physicsState.position && physicsState.position.y < -0.01);
 
       if (isOutOfBounds) {

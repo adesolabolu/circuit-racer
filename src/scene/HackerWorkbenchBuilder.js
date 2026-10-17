@@ -250,22 +250,22 @@ export function buildHackerWorkbenchDiorama(scene) {
   dmmDial.position.set(0.28, 0.027, -0.15);
   workbenchGroup.add(dmmDial);
 
-  // 7. Solder Wire Spool (Position: 0.38, 0, 0.06)
+  // 7. Solder Wire Spool (Positioned cleanly on desk edge)
   const spoolFlange1 = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.003, 18), new THREE.MeshStandardMaterial({ color: 0x0055bb }));
   const spoolFlange2 = spoolFlange1.clone();
   const spoolCore = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.026, 18), MAT_CHROME);
 
-  spoolFlange1.position.set(0.38, 0.003, 0.06);
-  spoolCore.position.set(0.38, 0.016, 0.06);
-  spoolFlange2.position.set(0.38, 0.029, 0.06);
+  spoolFlange1.position.set(0.46, 0.003, 0.06);
+  spoolCore.position.set(0.46, 0.016, 0.06);
+  spoolFlange2.position.set(0.46, 0.029, 0.06);
   workbenchGroup.add(spoolFlange1, spoolCore, spoolFlange2);
 
-  // 8. Ceramic Coffee Mug (Position: 0.36, 0, 0.18)
+  // 8. Ceramic Coffee Mug (Positioned safely on desk corner, zero camera clipping!)
   const mug = new THREE.Mesh(
     new THREE.CylinderGeometry(0.026, 0.023, 0.052, 20),
     new THREE.MeshStandardMaterial({ color: 0xdedede, roughness: 0.4 })
   );
-  mug.position.set(0.36, 0.026, 0.18);
+  mug.position.set(0.48, 0.026, 0.22);
   mug.castShadow = true;
   workbenchGroup.add(mug);
 
@@ -274,7 +274,7 @@ export function buildHackerWorkbenchDiorama(scene) {
     new THREE.CircleGeometry(0.022, 16),
     new THREE.MeshStandardMaterial({ color: 0x1f1208, roughness: 0.2 })
   );
-  coffee.position.set(0.36, 0.046, 0.18);
+  coffee.position.set(0.48, 0.046, 0.22);
   coffee.rotation.x = -Math.PI / 2;
   workbenchGroup.add(coffee);
 
@@ -283,7 +283,7 @@ export function buildHackerWorkbenchDiorama(scene) {
     new THREE.TorusGeometry(0.014, 0.004, 8, 14, Math.PI),
     new THREE.MeshStandardMaterial({ color: 0xdedede, roughness: 0.4 })
   );
-  handle.position.set(0.388, 0.026, 0.18);
+  handle.position.set(0.508, 0.026, 0.22);
   handle.rotation.y = Math.PI / 2;
   handle.rotation.z = Math.PI / 2;
   workbenchGroup.add(handle);

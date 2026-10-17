@@ -9,6 +9,8 @@ import { createDriver } from './DriverBuilder.js';
 export function buildMicroKart() {
   const kartRoot = new THREE.Group();
   kartRoot.name = 'Kart1to87Root';
+  // Scale car to 0.95x for substantial, impressive racing presence on the widened track
+  kartRoot.scale.set(0.95, 0.95, 0.95);
 
   // Inner suspension/drift yaw-roll body group
   const chassisGroup = new THREE.Group();
@@ -17,38 +19,83 @@ export function buildMicroKart() {
 
   const redFairingMat = new THREE.MeshStandardMaterial({
     color: 0xff2b1e,
-    roughness: 0.22,
-    metalness: 0.35,
+    roughness: 0.18,
+    metalness: 0.45,
   });
 
   const whiteStripeMat = new THREE.MeshStandardMaterial({
     color: 0xf7f9fc,
-    roughness: 0.25,
-    metalness: 0.1,
+    roughness: 0.22,
+    metalness: 0.15,
   });
 
   const carbonMat = new THREE.MeshStandardMaterial({
-    color: 0x181b22,
-    roughness: 0.42,
-    metalness: 0.45,
+    color: 0x151820,
+    roughness: 0.38,
+    metalness: 0.55,
   });
 
   const chromeMat = new THREE.MeshStandardMaterial({
     color: 0xdce4f0,
-    roughness: 0.15,
-    metalness: 0.92,
+    roughness: 0.12,
+    metalness: 0.95,
   });
 
   const goldRimMat = new THREE.MeshStandardMaterial({
     color: 0xffbb44,
-    roughness: 0.25,
-    metalness: 0.85,
+    roughness: 0.20,
+    metalness: 0.88,
   });
 
   const tireRubberMat = new THREE.MeshStandardMaterial({
     color: 0x121419,
-    roughness: 0.82,
+    roughness: 0.80,
     metalness: 0.05,
+  });
+
+  const windshieldGlassMat = new THREE.MeshStandardMaterial({
+    color: 0x00f0ff,
+    transparent: true,
+    opacity: 0.55,
+    roughness: 0.10,
+    metalness: 0.40,
+  });
+
+  const brakeDiscMat = new THREE.MeshStandardMaterial({
+    color: 0x94a3b8,
+    roughness: 0.30,
+    metalness: 0.88,
+  });
+
+  const redCaliperMat = new THREE.MeshStandardMaterial({
+    color: 0xee1122,
+    roughness: 0.22,
+    metalness: 0.50,
+  });
+
+  const haloMat = new THREE.MeshStandardMaterial({
+    color: 0x222630,
+    roughness: 0.28,
+    metalness: 0.82,
+  });
+
+  const headlightLensMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0xffffff,
+    emissiveIntensity: 2.8,
+    roughness: 0.05,
+  });
+
+  const intakeMeshMat = new THREE.MeshStandardMaterial({
+    color: 0x080a0f,
+    roughness: 0.85,
+    metalness: 0.20,
+  });
+
+  const titaniumBurnMat = new THREE.MeshStandardMaterial({
+    color: 0x3b82f6,
+    roughness: 0.22,
+    metalness: 0.92,
   });
 
   // Soft multi-layered local contact-shadow decal directly under the kart chassis & 4 tires
@@ -132,65 +179,285 @@ export function buildMicroKart() {
   kartShadowQuad.receiveShadow = false;
   kartRoot.add(kartShadowQuad);
 
+  // 1:87 Ground-Effect Neon LED Underglow System
+  const underglowLight = new THREE.PointLight(0x00ffcc, 1.2, 0.045, 1.8);
+  underglowLight.position.set(0, 0.0018, 0);
+  chassisGroup.add(underglowLight);
+
+  const underglowCanvas = document.createElement('canvas');
+  underglowCanvas.width = 128;
+  underglowCanvas.height = 128;
+  const ugCtx = underglowCanvas.getContext('2d');
+  const ugGrad = ugCtx.createRadialGradient(64, 64, 4, 64, 64, 58);
+  ugGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+  ugGrad.addColorStop(0.35, 'rgba(0, 255, 204, 0.7)');
+  ugGrad.addColorStop(1, 'rgba(0, 255, 204, 0.0)');
+  ugCtx.fillStyle = ugGrad;
+  ugCtx.fillRect(0, 0, 128, 128);
+  const underglowTex = new THREE.CanvasTexture(underglowCanvas);
+
+  const underglowMat = new THREE.MeshBasicMaterial({
+    map: underglowTex,
+    color: 0x00ffcc,
+    transparent: true,
+    opacity: 0.85,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -9,
+    polygonOffsetUnits: -9,
+  });
+  const underglowQuad = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.016, 0.024),
+    underglowMat
+  );
+  underglowQuad.rotation.x = -Math.PI / 2;
+  underglowQuad.position.set(0, 0.00074, 0);
+  kartRoot.add(underglowQuad);
+
+  function setUnderglowColor(hex) {
+    if (typeof hex === 'string') {
+      const colorVal = parseInt(hex.replace('#', '0x'), 16);
+      underglowLight.color.setHex(colorVal);
+      underglowMat.color.setHex(colorVal);
+    } else if (typeof hex === 'number') {
+      underglowLight.color.setHex(hex);
+      underglowMat.color.setHex(hex);
+    }
+  }
+
+  function setChassisColor(hex) {
+    if (typeof hex === 'string') {
+      redFairingMat.color.setHex(parseInt(hex.replace('#', '0x'), 16));
+    } else if (typeof hex === 'number') {
+      redFairingMat.color.setHex(hex);
+    }
+  }
+
   // -------------------------------------------------------------------------
   // 1. FLOOR PAN, TUBULAR FRAME, NOSE CONE & SIDE PODS (18mm long x 12mm wide)
   //    Kart local forward is +Z (aligned with spline tangent)
   // -------------------------------------------------------------------------
+  // 1. FLOOR PAN, GROUND-EFFECT SPLITTER, BARGEBOARDS & REAR DIFFUSER
   const floorPan = new THREE.Mesh(
-    new THREE.BoxGeometry(0.0082, 0.0009, 0.0155),
+    new THREE.BoxGeometry(0.0084, 0.0006, 0.0160),
     carbonMat
   );
-  floorPan.position.set(0, 0.0014, 0);
+  floorPan.position.set(0, 0.0010, 0);
   floorPan.castShadow = false;
   chassisGroup.add(floorPan);
 
-  // Front aerodynamic nose fairing (+Z front)
+  // Carbon Front Splitter Tray with Aerodynamic Dive Planes (Canards)
+  const frontSplitter = new THREE.Mesh(
+    new THREE.BoxGeometry(0.0102, 0.0004, 0.0032),
+    carbonMat
+  );
+  frontSplitter.position.set(0, 0.0008, 0.0084);
+  frontSplitter.castShadow = false;
+  chassisGroup.add(frontSplitter);
+
+  // Left & Right Front Aerodynamic Canards (Vortex Generators)
+  for (const sx of [-0.0046, 0.0046]) {
+    const canard = new THREE.Mesh(
+      new THREE.BoxGeometry(0.0018, 0.0003, 0.0020),
+      carbonMat
+    );
+    canard.position.set(sx, 0.0019, 0.0076);
+    canard.rotation.y = sx > 0 ? 0.32 : -0.32;
+    canard.rotation.z = sx > 0 ? -0.15 : 0.15;
+    canard.castShadow = false;
+    chassisGroup.add(canard);
+  }
+
+  // Sculpted Aerodynamic Tapered Nose Cone (+Z front)
   const noseCone = new THREE.Mesh(
-    new THREE.BoxGeometry(0.0086, 0.0021, 0.0044),
+    new THREE.CylinderGeometry(0.0034, 0.0048, 0.0064, 16),
     redFairingMat
   );
-  noseCone.position.set(0, 0.0023, 0.0068);
-  noseCone.rotation.x = 0.22;
+  noseCone.position.set(0, 0.0024, 0.0065);
+  noseCone.rotation.x = -Math.PI / 2 + 0.22;
   noseCone.castShadow = false;
   chassisGroup.add(noseCone);
 
-  // White #87 Nose Number Plate
-  const numberPlate = new THREE.Mesh(
-    new THREE.BoxGeometry(0.0048, 0.0004, 0.0028),
+  // Center Aerodynamic Racing Stripe & #87 Number Plate
+  const centerStripe = new THREE.Mesh(
+    new THREE.BoxGeometry(0.0016, 0.0003, 0.0056),
     whiteStripeMat
   );
-  numberPlate.position.set(0, 0.0033, 0.0066);
+  centerStripe.position.set(0, 0.0034, 0.0062);
+  centerStripe.rotation.x = 0.22;
+  chassisGroup.add(centerStripe);
+
+  const numberPlate = new THREE.Mesh(
+    new THREE.BoxGeometry(0.0036, 0.0004, 0.0026),
+    whiteStripeMat
+  );
+  numberPlate.position.set(0, 0.0036, 0.0072);
   numberPlate.rotation.x = 0.22;
   chassisGroup.add(numberPlate);
 
-  // Left & Right Side Pods
+  // Twin High-Intensity Micro LED Projector Headlights
+  for (const sx of [-0.0032, 0.0032]) {
+    const bezel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0007, 0.0007, 0.0005, 10),
+      chromeMat
+    );
+    bezel.position.set(sx, 0.0024, 0.0086);
+    bezel.rotation.x = Math.PI / 2;
+    chassisGroup.add(bezel);
+
+    const lens = new THREE.Mesh(
+      new THREE.SphereGeometry(0.00045, 8, 8),
+      headlightLensMat
+    );
+    lens.position.set(sx, 0.0024, 0.0089);
+    chassisGroup.add(lens);
+  }
+
+  // Curved Tinted Aerodynamic Windshield Visor Deflector
+  const windscreen = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.0036, 0.0036, 0.0015, 16, 1, true, -Math.PI * 0.44, Math.PI * 0.88),
+    windshieldGlassMat
+  );
+  windscreen.position.set(0, 0.0044, 0.0026);
+  windscreen.rotation.x = 0.35;
+  windscreen.castShadow = false;
+  chassisGroup.add(windscreen);
+
+  // Formula-Style Titanium Safety Halo Arch Over Cockpit
+  const haloArch = new THREE.Mesh(
+    new THREE.TorusGeometry(0.0028, 0.00032, 8, 16, Math.PI),
+    haloMat
+  );
+  haloArch.position.set(0, 0.0052, -0.0006);
+  haloArch.rotation.x = -Math.PI / 2 + 0.35;
+  chassisGroup.add(haloArch);
+
+  // Left & Right Sculpted Side Pods with Realistic Air Intake Scoops & Bargeboards
   for (const sx of [-0.0044, 0.0044]) {
     const sidePod = new THREE.Mesh(
-      new THREE.BoxGeometry(0.0024, 0.0024, 0.0076),
+      new THREE.BoxGeometry(0.0022, 0.0024, 0.0078),
       redFairingMat
     );
     sidePod.position.set(sx, 0.0024, -0.0004);
     sidePod.castShadow = false;
     chassisGroup.add(sidePod);
+
+    // Front Air Intake Scoop Mouth with Dark Cooling Mesh
+    const intakeMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.0019, 0.0020, 0.0003),
+      intakeMeshMat
+    );
+    intakeMesh.position.set(sx, 0.0024, 0.0036);
+    chassisGroup.add(intakeMesh);
+
+    // Carbon Ground-Effect Side Bargeboard Skirts
+    const skirt = new THREE.Mesh(
+      new THREE.BoxGeometry(0.0004, 0.0007, 0.0084),
+      carbonMat
+    );
+    skirt.position.set(sx > 0 ? sx + 0.0011 : sx - 0.0011, 0.0011, -0.0004);
+    chassisGroup.add(skirt);
   }
 
-  // Rear Engine Block (right-rear kart motor + cooling fins) & Rear Wing
+  // Overhead Engine Air Scoop / Snorkel behind Driver
+  const airbox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.0022, 0.0026, 0.0034),
+    redFairingMat
+  );
+  airbox.position.set(0, 0.0062, -0.0038);
+  chassisGroup.add(airbox);
+
+  // Aerodynamic Carbon Dorsal Shark Fin Stabilizer
+  const sharkFin = new THREE.Mesh(
+    new THREE.BoxGeometry(0.00035, 0.0032, 0.0054),
+    carbonMat
+  );
+  sharkFin.position.set(0, 0.0068, -0.0056);
+  chassisGroup.add(sharkFin);
+
+  // Polished Engine Block with Cooling Ribs
   const engineBlock = new THREE.Mesh(
-    new THREE.BoxGeometry(0.0034, 0.0036, 0.0042),
+    new THREE.BoxGeometry(0.0032, 0.0034, 0.0042),
     chromeMat
   );
-  engineBlock.position.set(0.0022, 0.0036, -0.0048);
+  engineBlock.position.set(0.0018, 0.0032, -0.0048);
   engineBlock.castShadow = false;
   chassisGroup.add(engineBlock);
 
-  const rearWing = new THREE.Mesh(
-    new THREE.BoxGeometry(0.0096, 0.0007, 0.0024),
+  // Underbody Carbon Rear Diffuser with 3 Vertical Vortex Strakes
+  const diffuser = new THREE.Mesh(
+    new THREE.BoxGeometry(0.0084, 0.0004, 0.0034),
     carbonMat
   );
-  rearWing.position.set(0, 0.0068, -0.0076);
-  rearWing.rotation.x = -0.18;
-  rearWing.castShadow = false;
-  chassisGroup.add(rearWing);
+  diffuser.position.set(0, 0.0011, -0.0082);
+  chassisGroup.add(diffuser);
+
+  for (const dx of [-0.0026, 0, 0.0026]) {
+    const strake = new THREE.Mesh(
+      new THREE.BoxGeometry(0.0003, 0.0011, 0.0032),
+      carbonMat
+    );
+    strake.position.set(dx, 0.0014, -0.0082);
+    chassisGroup.add(strake);
+  }
+
+  // Multi-Tier Aerodynamic High-Downforce Rear Wing
+  for (const sx of [-0.0024, 0.0024]) {
+    const pylon = new THREE.Mesh(
+      new THREE.BoxGeometry(0.0004, 0.0034, 0.0008),
+      carbonMat
+    );
+    pylon.position.set(sx, 0.0056, -0.0070);
+    pylon.rotation.x = -0.22;
+    chassisGroup.add(pylon);
+  }
+
+  const mainWing = new THREE.Mesh(
+    new THREE.BoxGeometry(0.0112, 0.0005, 0.0028),
+    carbonMat
+  );
+  mainWing.position.set(0, 0.0074, -0.0076);
+  mainWing.rotation.x = -0.16;
+  mainWing.castShadow = false;
+  chassisGroup.add(mainWing);
+
+  const upperGurney = new THREE.Mesh(
+    new THREE.BoxGeometry(0.0108, 0.0004, 0.0012),
+    redFairingMat
+  );
+  upperGurney.position.set(0, 0.0078, -0.0084);
+  upperGurney.rotation.x = -0.22;
+  chassisGroup.add(upperGurney);
+
+  // Aerodynamic Vertical Wing Endplates with Racing Livery
+  for (const sx of [-0.0057, 0.0057]) {
+    const endplate = new THREE.Mesh(
+      new THREE.BoxGeometry(0.0004, 0.0034, 0.0040),
+      carbonMat
+    );
+    endplate.position.set(sx, 0.0072, -0.0076);
+    chassisGroup.add(endplate);
+
+    const accentStripe = new THREE.Mesh(
+      new THREE.BoxGeometry(0.00045, 0.0006, 0.0038),
+      whiteStripeMat
+    );
+    accentStripe.position.set(sx, 0.0076, -0.0076);
+    chassisGroup.add(accentStripe);
+  }
+
+  // Dual Burnt-Titanium Exhaust Tip Nozzles
+  for (const sx of [-0.0015, 0.0015]) {
+    const tip = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.00068, 0.00068, 0.0012, 10),
+      titaniumBurnMat
+    );
+    tip.position.set(sx, 0.0025, -0.0088);
+    tip.rotation.x = Math.PI / 2;
+    chassisGroup.add(tip);
+  }
 
   // Twin Rear Exhaust Pipes + Realistic Volumetric Mach-Diamond Afterburner Jet
   // Plumes (Zero FPS impact!)
@@ -458,6 +725,7 @@ export function buildMicroKart() {
     const wWidth = isRear ? 0.0022 : 0.0017;
     const wGroup = new THREE.Group();
 
+    // 1. High-grip micro slick rubber tire
     const tire = new THREE.Mesh(
       new THREE.CylinderGeometry(wRadius, wRadius, wWidth, 20),
       tireRubberMat
@@ -466,12 +734,46 @@ export function buildMicroKart() {
     tire.castShadow = false;
     wGroup.add(tire);
 
+    // 2. Anodized multi-spoke rim face with chrome outer lip
     const rim = new THREE.Mesh(
-      new THREE.CylinderGeometry(wRadius * 0.62, wRadius * 0.62, wWidth * 1.04, 14),
+      new THREE.CylinderGeometry(wRadius * 0.64, wRadius * 0.64, wWidth * 1.04, 16),
       goldRimMat
     );
     rim.rotation.z = Math.PI / 2;
     wGroup.add(rim);
+
+    const rimLip = new THREE.Mesh(
+      new THREE.CylinderGeometry(wRadius * 0.66, wRadius * 0.66, wWidth * 0.18, 16),
+      chromeMat
+    );
+    rimLip.rotation.z = Math.PI / 2;
+    rimLip.position.x = isRear ? 0.0009 : 0.0007;
+    wGroup.add(rimLip);
+
+    // 3. Slotted steel disc brake rotor inside wheel
+    const rotor = new THREE.Mesh(
+      new THREE.CylinderGeometry(wRadius * 0.58, wRadius * 0.58, wWidth * 0.28, 14),
+      brakeDiscMat
+    );
+    rotor.rotation.z = Math.PI / 2;
+    rotor.position.x = isRear ? -0.0004 : -0.0003;
+    wGroup.add(rotor);
+
+    // 4. Red Brembo performance brake caliper
+    const caliper = new THREE.Mesh(
+      new THREE.BoxGeometry(wWidth * 0.35, wRadius * 0.38, wRadius * 0.32),
+      redCaliperMat
+    );
+    caliper.position.set(isRear ? -0.0004 : -0.0003, wRadius * 0.26, 0);
+    wGroup.add(caliper);
+
+    // 5. Center titanium hex wheel hub nut
+    const centerNut = new THREE.Mesh(
+      new THREE.CylinderGeometry(wRadius * 0.18, wRadius * 0.18, wWidth * 1.08, 6),
+      chromeMat
+    );
+    centerNut.rotation.z = Math.PI / 2;
+    wGroup.add(centerNut);
 
     return wGroup;
   }
@@ -813,7 +1115,7 @@ export function buildMicroKart() {
     noseCone,
     numberPlate,
     engineBlock,
-    rearWing,
+    mainWing,
     seat,
     driver.root,
     steeringWheel,
@@ -1038,5 +1340,7 @@ export function buildMicroKart() {
     updateWheels,
     updateKartVisuals,
     attachGlbKart,
+    setUnderglowColor,
+    setChassisColor,
   };
 }

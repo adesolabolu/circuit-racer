@@ -10,11 +10,18 @@ import { createJumpRamp } from './scene/JumpRampBuilder.js';
 import { createKartPhysicsController } from './physics/KartPhysicsController.js';
 import { createHazardManager } from './physics/HazardManager.js';
 import { createWebAudioSynth } from './audio/WebAudioSynth.js';
+import { createSynthwaveMusicEngine } from './audio/SynthwaveMusicEngine.js';
 import { getPlayer, onUserChange, saveScore } from './platform/startng.js';
-import { profileState } from './state/ProfileState.js';
+import { profileState, KART_CATALOG } from './state/ProfileState.js';
+import { TRACK_LIST, getSelectedTrack, setSelectedTrackId } from './scene/TrackRegistry.js';
+import { LeaderboardState } from './state/LeaderboardState.js';
 import { createTitleScreen } from './ui/TitleScreen.js';
 import { createHudOverlay } from './ui/HudOverlay.js';
 import { createResultsModal } from './ui/ResultsModal.js';
+import { createGarageModal } from './ui/GarageModal.js';
+import { createTrackSelectModal } from './ui/TrackSelectModal.js';
+import { createLeaderboardModal } from './ui/LeaderboardModal.js';
+import { createTrackMinimap } from './ui/TrackMinimap.js';
 
 async function initCircuitRacer() {
   const container = document.getElementById('canvas-container');
@@ -48,18 +55,19 @@ async function initCircuitRacer() {
   const atmosphere = buildAtmosphere(scene);
   const diorama = buildHackerWorkbenchDiorama(scene);
 
-  // 3. FETCH MANIFEST & TRACK SPLINE
-  console.log('[CircuitRacer] 3. Fetching manifest & track spline');
+  // 3. FETCH MANIFEST & SELECTED TRACK SPLINE
+  let currentTrack = getSelectedTrack();
+  console.log(`[CircuitRacer] 3. Fetching manifest & track spline for: ${currentTrack.name}`);
   const [manifestRes, splineRes] = await Promise.all([
-    fetch('/assets/data/desk_manifest.json'),
-    fetch('/assets/data/track_spline.json'),
+    fetch('./assets/data/desk_manifest.json'),
+    fetch(currentTrack.file),
   ]);
   const manifest = await manifestRes.json();
-  const splineData = await splineRes.json();
+  let splineData = await splineRes.json();
 
   // 4. BUILD COASTER TRACK
   console.log('[CircuitRacer] 4. Building coaster track');
-  const coaster = buildCoasterTrack(splineData);
+  let coaster = buildCoasterTrack(splineData);
   scene.add(coaster.trackGroup);
   if (coaster.underTrackLedGroup) {
     scene.add(coaster.underTrackLedGroup);
@@ -86,14 +94,26 @@ async function initCircuitRacer() {
 
   // 7. RAPIER3D PHYSICS CONTROLLER & AUDIO SYNTH
   console.log('[CircuitRacer] 7. Initializing physics controller');
-  const physics = await createKartPhysicsController(
+  let physics = await createKartPhysicsController(
     splineData,
     manifest,
     coaster.roadGeo
   );
   console.log('[CircuitRacer] 7b. Physics initialized');
 
-  const audio = createWebAudioSynth();
+  const audio = createWebAudioSynth({ masterVolume: 0.65 });
+  const music = createSynthwaveMusicEngine({ volume: 0.38 });
+
+  // Unlock and resume audio on user gesture
+  const resumeAudioOnce = () => {
+    audio.setEnabled(true);
+    music.start();
+    if (gameState === 'ATTRACT') {
+      music.setMode('MENU');
+    }
+  };
+  window.addEventListener('pointerdown', resumeAudioOnce, { once: true });
+  window.addEventListener('keydown', resumeAudioOnce, { once: true });
 
   // Initialize kart pose from physics starting gate
   const initSt = physics.state;
@@ -101,124 +121,188 @@ async function initCircuitRacer() {
   kart.kartRoot.quaternion.copy(initSt.quaternion);
 
   // 8. GAMEPLAY MECHANICS (COLLECTIBLES, BOOST PADS, JUMP RAMP, HAZARD MANAGER)
-  const hud = createHudOverlay({ player, profileState });
+  const hud = createHudOverlay({
+    player,
+    profileState,
+    onToggleMusic: () => {
+      const isMuted = music.toggleMute();
+      hud.setMusicMuted(isMuted);
+      hud.showAlert(isMuted ? 'MUSIC: MUTED' : 'MUSIC: ON', 900);
+    },
+    onOpenLeaderboard: () => {
+      openLeaderboardModal(currentTrack.id);
+    },
+  });
+
+  let minimap = createTrackMinimap(splineData);
   hudContainerVisibility(false);
 
   function hudContainerVisibility(visible) {
     const el = document.getElementById('hud-root');
     if (el) el.style.display = visible ? 'block' : 'none';
+    if (minimap) minimap.setVisible(visible);
   }
 
-  const collectibles = createTrackCollectibles(splineData, scene, {
-    chipCount: 16,
-    onCollect: (chip, amount) => {
-      profileState.addCoins(amount);
-      hud.setCoins(profileState.getCoins());
-      hud.showAlert('+10 BITS', 800);
-      audio.playChipPickup();
-    },
-  });
-
-  const boostPads = createBoostPads(splineData, scene, {
-    padCount: 4,
-    onBoost: () => {
-      physics.state.boostActive = 1.0;
-      physics.state.speed = Math.max(physics.state.speed, 0.285);
-      audio.playBoostPad();
-      hud.showAlert('TURBO BOOST!', 900);
-    },
-  });
-
-  const jumpRamp = createJumpRamp(splineData, scene, {
-    arcLength: 1.85, // Sector 3 jump
-    onLaunch: (launchVel) => {
-      physics.state.hopVel = launchVel;
-      audio.playJumpLaunch();
-    },
-  });
-
-  const hazardManager = createHazardManager(splineData, {
-    onFall: () => {
-      audio.playFallGlitch();
-      hud.showAlert('OFF TRACK! RESPAWNING...', 1200);
-    },
-    onRespawn: () => {
-      audio.playRespawnSound();
-    },
-  });
-
-  // Wire physics callbacks
-  physics.onRailImpact((severity) => {
-    audio.playRailImpact(severity);
-  });
-
-  physics.onLapComplete((lapTime, bestLap, completedLap, totalTime, isFinal) => {
-    if (!isFinal) {
-      collectibles.resetForNewLap();
-      hud.setLap(completedLap + 1);
-      hud.showAlert(`LAP ${completedLap + 1}!`);
-      audio.playLapChime();
-    }
-  });
-
-  physics.onRaceFinish(async (totalTime, lapTimes, bestLapTime) => {
-    gameState = 'FINISHED';
-    audio.playRaceFinishFanfare();
-
-    const chipsCount = collectibles.getCollectedCount();
-    const chipsBonus = chipsCount * 10;
-    const completionBonus = 50;
-    const cleanRunBonus = hazardManager.isCleanRun() ? 100 : 0;
-    const totalEarned = chipsBonus + completionBonus + cleanRunBonus;
-
-    // Add completion and clean run bonuses (chip coins were added live on pickup)
-    profileState.addCoins(completionBonus + cleanRunBonus);
-    hud.setCoins(profileState.getCoins());
-
-    // Submit score to start.ng
-    const finalScore = Math.max(
-      10,
-      Math.floor(10000 - totalTime * 80) + (hazardManager.isCleanRun() ? 1000 : 0)
-    );
-    let scoreResult = null;
-    try {
-      scoreResult = await saveScore(finalScore);
-    } catch (e) {
-      console.warn('Score submission error:', e);
-    }
-
-    createResultsModal({
-      totalTime,
-      bestLap: bestLapTime,
-      chipsCollected: chipsCount,
-      chipsBonus,
-      completionBonus,
-      cleanRunBonus,
-      totalEarned,
-      walletBalance: profileState.getCoins(),
-      scoreResult,
-      onRaceAgain: () => {
-        restartRaceSequence();
-      },
-      onGarage: () => {
-        hud.showAlert('GARAGE UNLOCKED IN PHASE 3!', 2000);
-      },
-      onMainMenu: () => {
-        returnToMainMenu();
+  function createGameplayObjects(trackData) {
+    const coll = createTrackCollectibles(trackData, scene, {
+      chipCount: 16,
+      onCollect: (chip, amount) => {
+        profileState.addCoins(amount);
+        hud.setCoins(profileState.getCoins());
+        hud.showAlert('+10 BITS', 800);
+        audio.playChipPickup();
       },
     });
-  });
+
+    const bp = createBoostPads(trackData, scene, {
+      padCount: 4,
+      onBoost: () => {
+        physics.state.boostActive = 1.0;
+        physics.state.speed = Math.max(physics.state.speed, 0.285);
+        audio.playBoostPad();
+        hud.showAlert('TURBO BOOST!', 900);
+      },
+    });
+
+    const rampS = (trackData.total_length_m || 3.0) * 0.48;
+    const jr = createJumpRamp(trackData, scene, {
+      arcLength: rampS,
+      onLaunch: (launchVel) => {
+        physics.state.hopVel = launchVel;
+        audio.playJumpLaunch();
+      },
+    });
+
+    const hm = createHazardManager(trackData, {
+      onFall: () => {
+        audio.playFallGlitch();
+        hud.showAlert('OFF TRACK! RESPAWNING...', 1200);
+      },
+      onRespawn: () => {
+        audio.playRespawnSound();
+      },
+    });
+
+    return { coll, bp, jr, hm };
+  }
+
+  let { coll: collectibles, bp: boostPads, jr: jumpRamp, hm: hazardManager } = createGameplayObjects(splineData);
+
+  function formatTime(seconds) {
+    if (typeof seconds !== 'number' || isNaN(seconds)) return '--:--.--';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 100);
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
+  }
+
+  // Wire physics callbacks
+  function wirePhysicsCallbacks() {
+    physics.onRailImpact((severity) => {
+      audio.playRailImpact(severity);
+    });
+
+    physics.onLapComplete((lapTime, bestLap, completedLap, totalTime, isFinal) => {
+      // Record lap time in Leaderboard
+      const selectedKartId = profileState.getSelectedKart();
+      const kartConfig = KART_CATALOG.find((k) => k.id === selectedKartId);
+      const isClean = hazardManager ? hazardManager.isCleanRun() : true;
+
+      const lbResult = LeaderboardState.recordLapTime(currentTrack.id, {
+        playerName: player ? player.name : 'Guest Hacker',
+        lapTime,
+        kartName: kartConfig?.name || 'Proto-Buggy',
+        cleanRun: isClean,
+        isPlayer: true,
+      });
+
+      if (lbResult?.isNewRecord) {
+        hud.showAlert(`⚡ NEW ALL-TIME RECORD! ${formatTime(lapTime)}`, 2200);
+      } else if (lbResult?.isPersonalBest) {
+        hud.showAlert(`🔥 PERSONAL BEST! ${formatTime(lapTime)}`, 1800);
+      } else if (!isFinal) {
+        hud.showAlert(`LAP ${completedLap + 1}!`);
+      }
+
+      if (!isFinal) {
+        collectibles.resetForNewLap();
+        hud.setLap(completedLap + 1);
+        audio.playLapChime();
+      }
+    });
+
+    physics.onRaceFinish(async (totalTime, lapTimes, bestLapTime) => {
+      gameState = 'FINISHED';
+      audio.playRaceFinishFanfare();
+      music.duck(0.18, 2.2);
+
+      const chipsCount = collectibles.getCollectedCount();
+      const chipsBonus = chipsCount * 10;
+      const completionBonus = 50;
+      const cleanRunBonus = hazardManager.isCleanRun() ? 100 : 0;
+      const totalEarned = chipsBonus + completionBonus + cleanRunBonus;
+
+      // Add completion and clean run bonuses (chip coins were added live on pickup)
+      profileState.addCoins(completionBonus + cleanRunBonus);
+      hud.setCoins(profileState.getCoins());
+
+      // Submit score to start.ng matching startng.json
+      const finalScore = Math.max(
+        10,
+        Math.floor(10000 - totalTime * 80) + (hazardManager.isCleanRun() ? 1000 : 0)
+      );
+      const lapTimeSeconds = Math.max(1, Math.round(bestLapTime || totalTime));
+      let scoreResult = null;
+      try {
+        scoreResult = await saveScore({
+          score: finalScore,
+          stats: {
+            time: lapTimeSeconds,
+            chips: chipsCount,
+          },
+        });
+      } catch (e) {
+        console.warn('Score submission error:', e);
+      }
+
+      createResultsModal({
+        totalTime,
+        bestLap: bestLapTime,
+        chipsCollected: chipsCount,
+        chipsBonus,
+        completionBonus,
+        cleanRunBonus,
+        totalEarned,
+        walletBalance: profileState.getCoins(),
+        scoreResult,
+        onRaceAgain: () => {
+          restartRaceSequence();
+        },
+        onGarage: () => {
+          openGarageModal();
+        },
+        onLeaderboard: () => {
+          openLeaderboardModal(currentTrack.id, true);
+        },
+        onMainMenu: () => {
+          returnToMainMenu();
+        },
+      });
+    });
+  }
+
+  wirePhysicsCallbacks();
 
   // 9. GAME STATE & UI
   let gameState = 'ATTRACT'; // 'ATTRACT' | 'COUNTDOWN' | 'RACING' | 'FINISHED'
   let raceTimer = 0;
   let wasAirborne = false;
 
-  // Camera modes and settings
+  // Camera modes and settings (calibrated for 0.95x aerodynamic racer on 34mm widened track)
   const CAMERA_MODES = [
-    { name: 'CHASE', dist: -0.054, height: 0.024, lookAhead: 0.038, lookHeight: 0.006 },
-    { name: 'FAR CHASE', dist: -0.086, height: 0.040, lookAhead: 0.048, lookHeight: 0.008 },
-    { name: 'HOOD CAM', dist: 0.009, height: 0.008, lookAhead: 0.052, lookHeight: 0.004 },
+    { name: 'CHASE', dist: -0.058, height: 0.027, lookAhead: 0.042, lookHeight: 0.007 },
+    { name: 'FAR CHASE', dist: -0.088, height: 0.042, lookAhead: 0.050, lookHeight: 0.008 },
+    { name: 'HOOD CAM', dist: 0.008, height: 0.008, lookAhead: 0.052, lookHeight: 0.004 },
   ];
   let currentCamModeIdx = 0;
 
@@ -233,11 +317,32 @@ async function initCircuitRacer() {
     .addScaledVector(initSt.normal, curCamInit.lookHeight);
   let attractOrbitAngle = 0.5;
 
+  let titleScreenRef = null;
+  let garageModalRef = null;
+  let trackSelectModalRef = null;
+  let leaderboardModalRef = null;
+
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyC') {
       currentCamModeIdx = (currentCamModeIdx + 1) % CAMERA_MODES.length;
       const mode = CAMERA_MODES[currentCamModeIdx];
       hud.showAlert(`CAM: ${mode.name}`, 1000);
+    } else if (e.code === 'KeyM') {
+      const isMuted = music.toggleMute();
+      hud.setMusicMuted(isMuted);
+      hud.showAlert(isMuted ? 'MUSIC: MUTED' : 'MUSIC: ON', 900);
+    } else if (e.code === 'KeyG') {
+      if (!garageModalRef && (gameState === 'ATTRACT' || gameState === 'FINISHED')) {
+        openGarageModal();
+      }
+    } else if (e.code === 'KeyT') {
+      if (!trackSelectModalRef && (gameState === 'ATTRACT' || gameState === 'FINISHED')) {
+        openTrackSelectModal();
+      }
+    } else if (e.code === 'KeyL') {
+      if (!leaderboardModalRef) {
+        openLeaderboardModal(currentTrack.id);
+      }
     }
   });
 
@@ -249,9 +354,166 @@ async function initCircuitRacer() {
     physicsPos: physics?.state?.position?.toArray(),
     speed: physics?.state?.speed,
     gameState,
+    currentTrack: currentTrack.id,
   });
 
-  let titleScreenRef = null;
+  function applyKartCustomization() {
+    const selectedKartId = profileState.getSelectedKart();
+    const currentKartConfig = KART_CATALOG.find((k) => k.id === selectedKartId) || KART_CATALOG[0];
+    if (kart.setChassisColor) {
+      kart.setChassisColor(currentKartConfig.accentColor);
+    }
+    if (kart.setUnderglowColor) {
+      kart.setUnderglowColor(profileState.getUnderglowColor());
+    }
+    physics.applyProfileUpgrades(profileState.getUpgrades(), selectedKartId);
+  }
+
+  // Apply customizations at startup
+  applyKartCustomization();
+
+  function openGarageModal() {
+    if (garageModalRef) return;
+    music.start();
+    music.setMode('MENU');
+    audio.setEnabled(true);
+
+    garageModalRef = createGarageModal({
+      profileState,
+      onKartChanged: (kartId) => {
+        applyKartCustomization();
+        hud.setCoins(profileState.getCoins());
+        titleScreenRef?.updateCoins?.(profileState.getCoins());
+      },
+      onUnderglowChanged: (hex) => {
+        kart.setUnderglowColor(hex);
+      },
+      onStartRace: () => {
+        garageModalRef = null;
+        if (titleScreenRef) {
+          titleScreenRef.hide();
+          titleScreenRef = null;
+        }
+        startRaceSequence();
+      },
+      onClose: () => {
+        garageModalRef = null;
+        applyKartCustomization();
+        hud.setCoins(profileState.getCoins());
+        titleScreenRef?.updateCoins?.(profileState.getCoins());
+        if (gameState === 'FINISHED') {
+          returnToMainMenu();
+        }
+      },
+    });
+  }
+
+  function openTrackSelectModal() {
+    if (trackSelectModalRef) return;
+    trackSelectModalRef = createTrackSelectModal({
+      currentTrackId: currentTrack.id,
+      onSelectTrack: async (chosenTrack) => {
+        trackSelectModalRef = null;
+        if (chosenTrack && chosenTrack.id !== currentTrack.id) {
+          await switchTrack(chosenTrack);
+        }
+        if (gameState === 'FINISHED') {
+          returnToMainMenu();
+        }
+      },
+      onClose: () => {
+        trackSelectModalRef = null;
+        if (gameState === 'FINISHED') {
+          returnToMainMenu();
+        }
+      },
+    });
+  }
+
+  function openLeaderboardModal(trackId = null, isPostRace = false) {
+    if (leaderboardModalRef) return;
+    const postRaceMode = isPostRace || gameState === 'FINISHED';
+    leaderboardModalRef = createLeaderboardModal({
+      initialTrackId: trackId || currentTrack.id,
+      isPostRace: postRaceMode,
+      onRaceAgain: () => {
+        leaderboardModalRef = null;
+        restartRaceSequence();
+      },
+      onClose: () => {
+        leaderboardModalRef = null;
+        if (gameState === 'FINISHED') {
+          returnToMainMenu();
+        }
+      },
+    });
+  }
+
+  async function switchTrack(newTrackConfig) {
+    currentTrack = newTrackConfig;
+    setSelectedTrackId(newTrackConfig.id);
+
+    hud.showAlert(`LOADING ${newTrackConfig.name}...`, 1200);
+
+    // 1. Remove previous track visual groups
+    if (coaster) {
+      scene.remove(coaster.trackGroup);
+      if (coaster.underTrackLedGroup) scene.remove(coaster.underTrackLedGroup);
+    }
+    if (collectibles) scene.remove(collectibles.collectiblesGroup);
+    if (boostPads) scene.remove(boostPads.padsGroup);
+    if (jumpRamp) scene.remove(jumpRamp.mesh);
+    if (minimap) minimap.destroy();
+    if (physics) physics.dispose();
+
+    // 2. Fetch new spline data
+    const res = await fetch(newTrackConfig.file);
+    splineData = await res.json();
+
+    // 3. Rebuild Coaster Track
+    coaster = buildCoasterTrack(splineData);
+    scene.add(coaster.trackGroup);
+    if (coaster.underTrackLedGroup) {
+      scene.add(coaster.underTrackLedGroup);
+    }
+
+    // 4. Rebuild Physics
+    physics = await createKartPhysicsController(
+      splineData,
+      manifest,
+      coaster.roadGeo
+    );
+    applyKartCustomization();
+    wirePhysicsCallbacks();
+
+    // 5. Rebuild Gameplay Objects & Minimap
+    const objs = createGameplayObjects(splineData);
+    collectibles = objs.coll;
+    boostPads = objs.bp;
+    jumpRamp = objs.jr;
+    hazardManager = objs.hm;
+    minimap = createTrackMinimap(splineData);
+
+    // 6. Reposition kart to new start position
+    const newInitSt = physics.state;
+    kart.kartRoot.position.copy(newInitSt.position);
+    kart.kartRoot.quaternion.copy(newInitSt.quaternion);
+
+    const curCam = CAMERA_MODES[currentCamModeIdx];
+    chasePos.copy(newInitSt.position)
+      .addScaledVector(newInitSt.tangent, curCam.dist)
+      .addScaledVector(newInitSt.normal, curCam.height);
+    chaseLook.copy(newInitSt.position)
+      .addScaledVector(newInitSt.tangent, curCam.lookAhead)
+      .addScaledVector(newInitSt.normal, curCam.lookHeight);
+
+    // 7. Update Title Screen UI if visible
+    if (titleScreenRef?.updateTrack) {
+      titleScreenRef.updateTrack(newTrackConfig);
+    }
+
+    hud.showAlert(`${newTrackConfig.name} READY!`, 1500);
+  }
 
   function showTitleScreen() {
     titleScreenRef = createTitleScreen({
@@ -260,6 +522,15 @@ async function initCircuitRacer() {
       onStartRace: () => {
         startRaceSequence();
       },
+      onOpenGarage: () => {
+        openGarageModal();
+      },
+      onOpenTrackSelect: () => {
+        openTrackSelectModal();
+      },
+      onOpenLeaderboard: () => {
+        openLeaderboardModal(currentTrack.id);
+      },
     });
   }
 
@@ -267,6 +538,8 @@ async function initCircuitRacer() {
 
   function startRaceSequence() {
     audio.setEnabled(true);
+    music.start();
+    music.setMode('COUNTDOWN');
     gameState = 'COUNTDOWN';
     hudContainerVisibility(true);
     hud.setLap(1);
@@ -282,6 +555,7 @@ async function initCircuitRacer() {
     setTimeout(() => {
       hud.showAlert('GO!', 1200);
       audio.playF1CountdownBeep(true);
+      music.setMode('RACING');
       gameState = 'RACING';
       raceTimer = 0;
       physics.notifyLightsOut?.();
@@ -300,6 +574,7 @@ async function initCircuitRacer() {
     collectibles.resetAll();
     hazardManager.reset();
     gameState = 'ATTRACT';
+    music.setMode('MENU');
     hudContainerVisibility(false);
     showTitleScreen();
   }
@@ -372,9 +647,39 @@ async function initCircuitRacer() {
       kart.updateKartVisuals(dt, physicsState);
       audio.update?.(dt, physicsState);
 
-      // HUD Telemetry
-      const speedKmh = Math.abs(physicsState.speed) * 120;
-      hud.setSpeed(speedKmh);
+      // HUD Telemetry & Radial Speedometer Gauge with Exaggerated Arcade Speed
+      const baseSpeed = Math.abs(physicsState.speed);
+      const isBoosting = (physicsState.boostActive || 0) > 0;
+      const boostBonus = (isBoosting ? 38 : 0) + ((physicsState.hopHeight || 0) > 0.001 ? 22 : 0);
+      const speedKmh = Math.min(340, Math.round(baseSpeed * 680 + boostBonus));
+
+      // Calculate simulated gear for tachometer cluster
+      let simulatedGear = '1';
+      if (isBoosting) {
+        simulatedGear = 'BST';
+      } else if (speedKmh <= 0) {
+        simulatedGear = 'N';
+      } else if (speedKmh < 60) {
+        simulatedGear = '1';
+      } else if (speedKmh < 120) {
+        simulatedGear = '2';
+      } else if (speedKmh < 185) {
+        simulatedGear = '3';
+      } else if (speedKmh < 245) {
+        simulatedGear = '4';
+      } else if (speedKmh < 295) {
+        simulatedGear = '5';
+      } else {
+        simulatedGear = '6';
+      }
+
+      hud.setSpeed(speedKmh, simulatedGear, isBoosting);
+      minimap.update(physicsState.position, dt);
+
+      // Dynamic Camera FOV widening for adrenaline rush / exaggerated speed sensation
+      const targetFov = 60 + (speedKmh / 340) * 8.5 + (isBoosting ? 4.5 : 0);
+      camera.fov += (targetFov - camera.fov) * Math.min(1.0, dt * 8.0);
+      camera.updateProjectionMatrix();
 
       if (gameState === 'RACING') {
         raceTimer += dt;

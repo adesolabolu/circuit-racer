@@ -1,0 +1,8 @@
+{
+  "leaderboard": {
+    "stats": [
+      { "key": "time", "label": "Lap Time", "order": "lowest", "format": "time" },
+      { "key": "chips", "label": "Bits Collected", "order": "highest" }
+    ]
+  }
+}

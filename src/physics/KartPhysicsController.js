@@ -332,6 +332,11 @@ export async function createKartPhysicsController(splineData, manifest, roadGeo)
   let onRaceFinishCallback = null;
   let onRailImpactCallback = null;
 
+  const trackWidthM = splineData?.track_width_m || 0.034;
+  const halfTrackWidth = trackWidthM * 0.5;
+  const curbThreshold = Math.max(0.0078, halfTrackWidth - 0.0035);
+  const railThreshold = Math.max(0.0090, halfTrackWidth - 0.0016);
+
   function computeActiveKeysStr() {
     return (
       [keys.forward && 'W', keys.left && 'A', keys.backward && 'S', keys.right && 'D']
@@ -341,10 +346,10 @@ export async function createKartPhysicsController(splineData, manifest, roadGeo)
   }
 
   function computeRailZone(latOffset) {
-    if (latOffset <= -0.0089) return 'L-RAIL';
-    if (latOffset >= 0.0089) return 'R-RAIL';
-    if (latOffset <= -0.0078) return 'L-CURB';
-    if (latOffset >= 0.0078) return 'R-CURB';
+    if (latOffset <= -railThreshold) return 'L-RAIL';
+    if (latOffset >= railThreshold) return 'R-RAIL';
+    if (latOffset <= -curbThreshold) return 'L-CURB';
+    if (latOffset >= curbThreshold) return 'R-CURB';
     return 'TRACK';
   }
 
@@ -359,8 +364,8 @@ export async function createKartPhysicsController(splineData, manifest, roadGeo)
     state.slope = newFrame.slope;
     state.curvature = Math.abs(newFrame.signedCurvature);
     state.signedCurvature = newFrame.signedCurvature;
-    state.distToLeftRailMm = (state.lateralOffset - -0.0090) * 1000;
-    state.distToRightRailMm = (0.0090 - state.lateralOffset) * 1000;
+    state.distToLeftRailMm = (state.lateralOffset - -railThreshold) * 1000;
+    state.distToRightRailMm = (railThreshold - state.lateralOffset) * 1000;
     state.railZone = computeRailZone(state.lateralOffset);
     state.activeKeysStr = computeActiveKeysStr();
     state.tangent.copy(newFrame.tangent);
@@ -506,47 +511,51 @@ export async function createKartPhysicsController(splineData, manifest, roadGeo)
   }
 
   // Pure Grip Racing (W/A/S/D or Arrow Keys only, plus P for Autopilot and R for Reset)
+  function onKeyDown(e) {
+    if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName) && !e.target.readOnly) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const code = e.code;
+    if (code === 'KeyW' || code === 'ArrowUp') {
+      kbKeys.forward = true;
+      if (state.autopilot) setAutopilot(false);
+    } else if (code === 'KeyS' || code === 'ArrowDown') {
+      kbKeys.backward = true;
+      if (state.autopilot) setAutopilot(false);
+    } else if (code === 'KeyA' || code === 'ArrowLeft') {
+      kbKeys.left = true;
+      if (state.autopilot) setAutopilot(false);
+    } else if (code === 'KeyD' || code === 'ArrowRight') {
+      kbKeys.right = true;
+      if (state.autopilot) setAutopilot(false);
+    } else if (code === 'KeyP') {
+      setAutopilot(!state.autopilot);
+    } else if (code === 'KeyR') {
+      resetToStart();
+    }
+    syncCombinedKeys();
+  }
+
+  function onKeyUp(e) {
+    const code = e.code;
+    if (code === 'KeyW' || code === 'ArrowUp') kbKeys.forward = false;
+    else if (code === 'KeyS' || code === 'ArrowDown') kbKeys.backward = false;
+    else if (code === 'KeyA' || code === 'ArrowLeft') kbKeys.left = false;
+    else if (code === 'KeyD' || code === 'ArrowRight') kbKeys.right = false;
+    syncCombinedKeys();
+  }
+
+  function onBlur() {
+    kbKeys.forward = false;
+    kbKeys.backward = false;
+    kbKeys.left = false;
+    kbKeys.right = false;
+    clearTouchKeys();
+  }
+
   if (typeof window !== 'undefined' && window.addEventListener) {
-    window.addEventListener('keydown', (e) => {
-      if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName) && !e.target.readOnly) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const code = e.code;
-      if (code === 'KeyW' || code === 'ArrowUp') {
-        kbKeys.forward = true;
-        if (state.autopilot) setAutopilot(false);
-      } else if (code === 'KeyS' || code === 'ArrowDown') {
-        kbKeys.backward = true;
-        if (state.autopilot) setAutopilot(false);
-      } else if (code === 'KeyA' || code === 'ArrowLeft') {
-        kbKeys.left = true;
-        if (state.autopilot) setAutopilot(false);
-      } else if (code === 'KeyD' || code === 'ArrowRight') {
-        kbKeys.right = true;
-        if (state.autopilot) setAutopilot(false);
-      } else if (code === 'KeyP') {
-        setAutopilot(!state.autopilot);
-      } else if (code === 'KeyR') {
-        resetToStart();
-      }
-      syncCombinedKeys();
-    });
-
-    window.addEventListener('keyup', (e) => {
-      const code = e.code;
-      if (code === 'KeyW' || code === 'ArrowUp') kbKeys.forward = false;
-      else if (code === 'KeyS' || code === 'ArrowDown') kbKeys.backward = false;
-      else if (code === 'KeyA' || code === 'ArrowLeft') kbKeys.left = false;
-      else if (code === 'KeyD' || code === 'ArrowRight') kbKeys.right = false;
-      syncCombinedKeys();
-    });
-
-    window.addEventListener('blur', () => {
-      kbKeys.forward = false;
-      kbKeys.backward = false;
-      kbKeys.left = false;
-      kbKeys.right = false;
-      clearTouchKeys();
-    });
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
   }
 
   // -------------------------------------------------------------------------
@@ -875,13 +884,13 @@ export async function createKartPhysicsController(splineData, manifest, roadGeo)
       if (
         state.railImpactActive ||
         state.speed <= 0.08 ||
-        Math.abs(state.lateralOffset) >= 0.0089
+        Math.abs(state.lateralOffset) >= railThreshold - 0.0001
       ) {
         state.cornerCleanTimer = 0.0;
       } else if (
         Math.abs(frame.signedCurvature) > 0.35 &&
         state.speed > 0.11 &&
-        Math.abs(state.lateralOffset) < 0.0085 &&
+        Math.abs(state.lateralOffset) < railThreshold - 0.0005 &&
         !state.railImpactActive
       ) {
         state.cornerCleanTimer += clampedDt;
@@ -916,28 +925,28 @@ export async function createKartPhysicsController(splineData, manifest, roadGeo)
       Math.abs(frame.signedCurvature) > 0.35 &&
       signLatCurrent * frame.signedCurvature > 0;
     state.angledIntoRail =
-      absLat >= 0.0078 &&
+      absLat >= curbThreshold &&
       !isInsideApexRail &&
       ((signLatCurrent > 0 && state.headingYaw < -0.05) ||
         (signLatCurrent < 0 && state.headingYaw > 0.05));
     state.steeringAway =
-      absLat >= 0.0078 &&
+      absLat >= curbThreshold &&
       ((signLatCurrent > 0 && turnRight < 0) || (signLatCurrent < 0 && turnRight > 0));
 
-    if (absLat < 0.0086) {
+    if (absLat < railThreshold - 0.0004) {
       state.railImpactActive = false;
     }
 
-    if (absLat >= 0.0078 && absLat < 0.0090) {
-      // Stage 1 — Red/White Curbs (0.0078 <= |lateralOffset| < 0.0090)
-      state.curbRumble = THREE.MathUtils.clamp((absLat - 0.0078) / 0.0012, 0.0, 1.0);
+    if (absLat >= curbThreshold && absLat < railThreshold) {
+      // Stage 1 — Red/White Curbs
+      state.curbRumble = THREE.MathUtils.clamp((absLat - curbThreshold) / (railThreshold - curbThreshold), 0.0, 1.0);
       if (!isAiCruise && !isInsideApexRail) {
         state.speed *= 1.0 - 0.12 * state.curbRumble * clampedDt;
       }
-    } else if (absLat >= 0.0090) {
-      // Stage 2 — Guardrail Contact (|lateralOffset| >= 0.0090)
+    } else if (absLat >= railThreshold) {
+      // Stage 2 — Guardrail Contact
       const signLat = Math.sign(state.lateralOffset) || 1;
-      state.lateralOffset = signLat * 0.0090;
+      state.lateralOffset = signLat * railThreshold;
       state.lateralVel = 0.0;
 
       if (!isAiCruise) {
@@ -950,7 +959,7 @@ export async function createKartPhysicsController(splineData, manifest, roadGeo)
 
         if (insideApexContact && !steeringIntoWall) {
           // Gliding along the INSIDE apex of a corner: align nose parallel to the apex curb without stopping!
-          state.lateralOffset = signLat * 0.0085;
+          state.lateralOffset = signLat * (railThreshold - 0.0005);
           state.headingYaw = signLat > 0
             ? Math.max(0.0, state.headingYaw)
             : Math.min(0.0, state.headingYaw);
@@ -967,7 +976,7 @@ export async function createKartPhysicsController(splineData, manifest, roadGeo)
 
           if (!hardCrashIntoWall && !steeringAway) {
             // Shallow Wall-Graze (< 9.5°): spark-throwing rail brush that bounces the nose ~3.7° back onto the lane!
-            state.lateralOffset = signLat * 0.0084;
+            state.lateralOffset = signLat * (railThreshold - 0.0006);
             state.headingYaw = signLat * 0.065;
             state.curbRumble = 0.85;
             state.isDrifting = true;
@@ -1012,7 +1021,7 @@ export async function createKartPhysicsController(splineData, manifest, roadGeo)
               // Player pressed the inward steering key (D off L-RAIL, or A off R-RAIL): peel smoothly off the barrier!
               state.railImpactActive = false;
               state.headingYaw = signLat * 0.13; // Gentle 7.5° peel-away angle toward track center
-              state.lateralOffset = signLat * 0.0083;
+              state.lateralOffset = signLat * (railThreshold - 0.0007);
               state.speed = Math.max(state.speed, 0.085 * state.topSpeedMultiplier);
             }
           }
@@ -1132,6 +1141,33 @@ export async function createKartPhysicsController(splineData, manifest, roadGeo)
     },
     onRailImpact: (cb) => {
       onRailImpactCallback = cb;
+    },
+    applyProfileUpgrades: (upgrades = {}, kartId = 'proto_buggy') => {
+      const motorKv = upgrades.motorKv || 1;
+      const capacitors = upgrades.capacitors || 1;
+      const siliconeGrip = upgrades.siliconeGrip || 1;
+
+      let kartSpeedMult = 1.0;
+      if (kartId === 'resistor_rod') kartSpeedMult = 1.12;
+      else if (kartId === 'micro_f1') kartSpeedMult = 1.06;
+
+      state.topSpeedMultiplier = kartSpeedMult * (1.0 + (motorKv - 1) * 0.05);
+      state.boostMultiplier = 1.0 + (capacitors - 1) * 0.08;
+      state.gripMultiplier = 1.0 + (siliconeGrip - 1) * 0.06;
+    },
+    dispose: () => {
+      if (typeof window !== 'undefined' && window.removeEventListener) {
+        window.removeEventListener('keydown', onKeyDown);
+        window.removeEventListener('keyup', onKeyUp);
+        window.removeEventListener('blur', onBlur);
+      }
+      try {
+        if (world && typeof world.free === 'function') {
+          world.free();
+        }
+      } catch (e) {
+        console.warn('Rapier world free error:', e);
+      }
     },
   };
 }

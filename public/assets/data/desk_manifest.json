@@ -3,8 +3,8 @@
     "unit": "meters (1.0 unit = 1000 mm)",
     "desk_top_y": 0.0,
     "kart_scale_ratio": "1:87 HO Micro-Coaster Scale",
-    "track_width_m": 0.022,
-    "curb_width_m": 0.0025,
+    "track_width_m": 0.034,
+    "curb_width_m": 0.0028,
     "kart_dimensions_m": {
       "length": 0.018,
       "width": 0.012,
